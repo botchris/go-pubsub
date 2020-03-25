@@ -1,1 +1,1 @@
-# go-pubsub
+[![Build Status](https://travis-ci.com/ChristopherCastro/go-pubsub.svg?branch=master)](https://travis-ci.com/ChristopherCastro/go-pubsub)
