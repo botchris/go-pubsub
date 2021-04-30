@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
-	"google.golang.org/protobuf/proto"
 )
 
 // List of known errors for subscriber signature validation process
@@ -27,7 +26,6 @@ var (
 // predefined values used internally when validation subscriber signatures
 var (
 	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
-	protoType   = reflect.TypeOf((*proto.Message)(nil)).Elem()
 	errorType   = reflect.TypeOf((*error)(nil)).Elem()
 )
 
@@ -37,7 +35,6 @@ type Subscriber struct {
 	callable    reflect.Value
 	messageType reflect.Type
 	messageKind reflect.Kind
-	isWildcard  bool
 }
 
 // NewSubscriber builds a new subscriber instance for the given function.
@@ -65,13 +62,12 @@ func NewSubscriber(handlerFunc interface{}) *Subscriber {
 	entropy := rand.New(rand.NewSource(t.UnixNano()))
 	id := ulid.MustNew(ulid.Timestamp(t), entropy).String()
 	mType := fnType.In(1)
-	println(mType.String())
+
 	return &Subscriber{
 		id:          id,
 		callable:    reflect.ValueOf(handlerFunc),
 		messageType: mType,
 		messageKind: mType.Kind(),
-		isWildcard:  protoType.String() == mType.String(),
 	}
 }
 
@@ -83,19 +79,14 @@ func (s *Subscriber) ID() string {
 // String returns a string representation of this subscription
 func (s *Subscriber) String() string {
 	in := s.messageType.String()
-	if s.isWildcard {
-		in = "*"
-	}
 
 	return fmt.Sprintf("%s(%s)", s.id, in)
 }
 
 // Deliver delivers the given message to this subscribers if acceptable
 func (s *Subscriber) Deliver(ctx context.Context, message interface{}) error {
-	if !s.isWildcard {
-		if messageType := reflect.TypeOf(message); !s.accepts(messageType) {
-			return nil
-		}
+	if messageType := reflect.TypeOf(message); !s.accepts(messageType) {
+		return nil
 	}
 
 	args := []reflect.Value{
@@ -136,10 +127,6 @@ func validateSubscriberFn(fn interface{}) error {
 
 	if fnType.In(1).Kind() != reflect.Ptr && fnType.In(1).Kind() != reflect.Interface {
 		return ErrSubscriberInputInvalidKind
-	}
-
-	if !fnType.In(1).Implements(protoType) {
-		return ErrSubscriberInputNoProtobuf
 	}
 
 	if fnType.NumOut() != 1 {

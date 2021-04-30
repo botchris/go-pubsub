@@ -15,13 +15,11 @@ func Test_Subscriber(t *testing.T) {
 		name        string
 		handlerFunc interface{}
 		panic       error
-		acceptsAny  bool
 	}{
 		{
 			name:        "compound proto.Message (any)",
 			handlerFunc: func(ctx context.Context, m CompoundProtoMessageInterface) error { return nil },
 			panic:       nil,
-			acceptsAny:  false,
 		},
 		{
 			name:        "message by value",
@@ -34,10 +32,9 @@ func Test_Subscriber(t *testing.T) {
 			panic:       nil,
 		},
 		{
-			name:        "anything by proto.Message",
+			name:        "anything of kind proto.Message",
 			handlerFunc: func(ctx context.Context, m proto.Message) error { return nil },
 			panic:       nil,
-			acceptsAny:  true,
 		},
 		{
 			name:        "pointer to compound proto",
@@ -79,13 +76,7 @@ func Test_Subscriber(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			operation := func() {
-				name := pubsub.NewSubscriber(tt.handlerFunc).String()
-
-				if tt.acceptsAny {
-					require.Contains(t, name, "(*)")
-				} else {
-					require.NotContains(t, name, "(*)")
-				}
+				pubsub.NewSubscriber(tt.handlerFunc)
 			}
 
 			if tt.panic != nil {
@@ -99,10 +90,6 @@ func Test_Subscriber(t *testing.T) {
 
 type CompoundProtoMessageInterface interface {
 	proto.Message
-}
-
-type CompoundProto struct {
-	CompoundProtoMessageInterface
 }
 
 type CompoundErrorInterface interface {
