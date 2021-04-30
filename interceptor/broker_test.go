@@ -41,7 +41,7 @@ func Test_Publish(t *testing.T) {
 		instance := interceptor.New(broker)
 
 		require.NotNil(t, instance)
-		require.NoError(t, instance.Publish(ctx, &CustomMessage{}, "dummyTopic"))
+		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
 	})
 
 	t.Run("GIVEN an interceptor instance with one publish interceptor WHEN publishing a message THEN message is intercepted", func(t *testing.T) {
@@ -50,7 +50,7 @@ func Test_Publish(t *testing.T) {
 		instance := interceptor.New(broker, interceptor.WithPublishInterceptor(spy.fn))
 
 		require.NotNil(t, instance)
-		require.NoError(t, instance.Publish(ctx, &CustomMessage{}, "dummyTopic"))
+		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
 
 		assert.Len(t, spy.m, 1)
 	})
@@ -77,7 +77,7 @@ func Test_Publish(t *testing.T) {
 
 		assert.Len(t, interceptor1.m, 0)
 		assert.Len(t, interceptor2.m, 0)
-		require.NoError(t, instance.Publish(ctx, &CustomMessage{}, "dummyTopic"))
+		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
 		assert.Len(t, interceptor1.m, 1)
 		assert.Len(t, interceptor2.m, 1)
 
@@ -105,7 +105,7 @@ func Test_Subscribe(t *testing.T) {
 		require.NotNil(t, subscriber)
 
 		assert.Len(t, spy.m, 0)
-		require.NoError(t, instance.Subscribe(ctx, subscriber, tid))
+		require.NoError(t, instance.Subscribe(ctx, tid, subscriber))
 		require.NoError(t, subscriber.Deliver(ctx, &CustomMessage{}))
 		require.Len(t, spy.m, 1)
 	})
@@ -142,7 +142,7 @@ func Test_Subscribe(t *testing.T) {
 
 		assert.Len(t, interceptor1.m, 0)
 		assert.Len(t, interceptor2.m, 0)
-		require.NoError(t, instance.Subscribe(ctx, subscriber, tid))
+		require.NoError(t, instance.Subscribe(ctx, tid, subscriber))
 		require.NoError(t, subscriber.Deliver(ctx, &CustomMessage{}))
 		assert.Len(t, interceptor1.m, 1)
 		assert.Len(t, interceptor2.m, 1)
@@ -178,18 +178,18 @@ func newPublishInterceptorSpy() *publishInterceptorSpy {
 }
 
 type subscribeInterceptorSpy struct {
-	m  []proto.Message
+	m  []interface{}
 	fn interceptor.SubscribeInterceptor
 }
 
 func newSubscribeInterceptorSpy() *subscribeInterceptorSpy {
 	s := &subscribeInterceptorSpy{}
 	if s.m == nil {
-		s.m = []proto.Message{}
+		s.m = []interface{}{}
 	}
 
 	s.fn = func(ctx context.Context, next interceptor.SubscribeMessageHandler) interceptor.SubscribeMessageHandler {
-		return func(ctx context.Context, sc *pubsub.Subscriber, m proto.Message) error {
+		return func(ctx context.Context, sc *pubsub.Subscriber, m interface{}) error {
 			s.m = append(s.m, m)
 
 			return next(ctx, sc, m)

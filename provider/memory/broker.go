@@ -31,7 +31,7 @@ func NewBroker(subErrHandler SubscriberErrorHandler) pubsub.Broker {
 	}
 }
 
-func (b *broker) Publish(ctx context.Context, m interface{}, topic pubsub.Topic) error {
+func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -45,11 +45,11 @@ func (b *broker) Publish(ctx context.Context, m interface{}, topic pubsub.Topic)
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, s *pubsub.Subscriber, topic pubsub.Topic) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	b.Lock()
 	defer b.Unlock()
 
-	b.openTopic(topic).subscribe(s)
+	b.openTopic(topic).subscribe(subscriber)
 
 	return nil
 }
@@ -66,7 +66,9 @@ func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	return keys, nil
 }
 
-func (b *broker) Shutdown(ctx context.Context) {}
+func (b *broker) Shutdown(ctx context.Context) error {
+	return nil
+}
 
 func (b *broker) openTopic(name pubsub.Topic) *topic {
 	t, ok := b.topics[name]

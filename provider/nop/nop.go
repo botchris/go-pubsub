@@ -13,11 +13,11 @@ func NewBroker() pubsub.Broker {
 
 type broker struct{}
 
-func (b *broker) Publish(ctx context.Context, m interface{}, topic pubsub.Topic) error {
+func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, subscriber *pubsub.Subscriber, topic pubsub.Topic) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	return nil
 }
 
@@ -25,4 +25,6 @@ func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	return []pubsub.Topic{}, nil
 }
 
-func (b *broker) Shutdown(ctx context.Context) {}
+func (b *broker) Shutdown(ctx context.Context) error {
+	return nil
+}

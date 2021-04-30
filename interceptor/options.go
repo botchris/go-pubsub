@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ChristopherCastro/go-pubsub"
-	"google.golang.org/protobuf/proto"
 )
 
 // Option sets options for a interceptor broker instance.
@@ -131,7 +130,7 @@ func chainSubscriberInterceptors(c *broker) {
 		chainedInt = interceptors[0]
 	} else {
 		chainedInt = func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler {
-			return func(ctx context.Context, s *pubsub.Subscriber, m proto.Message) error {
+			return func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error {
 				return interceptors[0](ctx, getChainSubscribeHandler(interceptors, 0, next))(ctx, s, m)
 			}
 		}
@@ -146,7 +145,7 @@ func getChainSubscribeHandler(interceptors []SubscribeInterceptor, curr int, fin
 		return final
 	}
 
-	return func(ctx context.Context, s *pubsub.Subscriber, m proto.Message) error {
+	return func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error {
 		return interceptors[curr+1](ctx, getChainSubscribeHandler(interceptors, curr+1, final))(ctx, s, m)
 	}
 }

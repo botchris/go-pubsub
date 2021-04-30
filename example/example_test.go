@@ -1,4 +1,4 @@
-package pubsub_test
+package main_test
 
 import (
 	"bytes"
@@ -39,8 +39,8 @@ func Test_EndToEnd(t *testing.T) {
 		require.NotNil(t, client)
 		require.NotNil(t, s)
 
-		require.NoError(t, client.Subscribe(ctx, s, topicID))
-		require.NoError(t, client.Publish(ctx, &emptypb.Empty{}, topicID))
+		require.NoError(t, client.Subscribe(ctx, topicID, s))
+		require.NoError(t, client.Publish(ctx, topicID, &emptypb.Empty{}))
 		require.Equal(t, 1, rx.read())
 
 		logs := writer.String()
@@ -57,7 +57,7 @@ func Test_EndToEnd(t *testing.T) {
 		topicID := pubsub.Topic("yolo-2")
 		client := interceptor.New(broker)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
 			rx.inc()
 
 			return nil
@@ -66,8 +66,8 @@ func Test_EndToEnd(t *testing.T) {
 		require.NotNil(t, client)
 		require.NotNil(t, s)
 
-		require.NoError(t, client.Subscribe(ctx, s, topicID))
-		require.NoError(t, client.Publish(ctx, &emptypb.Empty{}, topicID))
+		require.NoError(t, client.Subscribe(ctx, topicID, s))
+		require.NoError(t, client.Publish(ctx, topicID, &emptypb.Empty{}))
 		require.Equal(t, 1, rx.read())
 	})
 }

@@ -6,8 +6,6 @@ import (
 
 	"github.com/ChristopherCastro/go-pubsub"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func Test_Subscriber(t *testing.T) {
@@ -17,58 +15,58 @@ func Test_Subscriber(t *testing.T) {
 		panic       error
 	}{
 		{
-			name:        "compound proto.Message (any)",
+			name:        "compound interface",
 			handlerFunc: func(ctx context.Context, m CompoundProtoMessageInterface) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "message by value",
-			handlerFunc: func(ctx context.Context, m emptypb.Empty) error { return nil },
-			panic:       pubsub.ErrSubscriberInputInvalidKind,
+			handlerFunc: func(ctx context.Context, m EmptyMessage) error { return nil },
+			panic:       nil,
 		},
 		{
 			name:        "message by pointer",
-			handlerFunc: func(ctx context.Context, m *emptypb.Empty) error { return nil },
+			handlerFunc: func(ctx context.Context, m *EmptyMessage) error { return nil },
 			panic:       nil,
 		},
 		{
-			name:        "anything of kind proto.Message",
-			handlerFunc: func(ctx context.Context, m proto.Message) error { return nil },
+			name:        "anything of custom interface",
+			handlerFunc: func(ctx context.Context, m CustomInterface) error { return nil },
 			panic:       nil,
 		},
 		{
-			name:        "pointer to compound proto",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) error { return nil },
+			name:        "pointer to compound message",
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "invalid context",
-			handlerFunc: func(ctx interface{}, m *CompoundProtoMessage) error { return nil },
+			handlerFunc: func(ctx interface{}, m *CompoundMessage) error { return nil },
 			panic:       pubsub.ErrSubscriberInputNoContext,
 		},
 		{
 			name:        "no return",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) {},
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) {},
 			panic:       pubsub.ErrSubscriberOutputLengthMissMatch,
 		},
 		{
 			name:        "returns not of error kind",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) *CompoundProtoMessage { return nil },
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) *CompoundMessage { return nil },
 			panic:       pubsub.ErrSubscriberOutputNoError,
 		},
 		{
 			name:        "returns compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) CompoundErrorInterface { return nil },
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) CompoundErrorInterface { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "returns pointer to compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) *CompoundError { return nil },
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) *CompoundError { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "returns value of compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundProtoMessage) CompoundError { return CompoundError{} },
+			handlerFunc: func(ctx context.Context, m *CompoundMessage) CompoundError { return CompoundError{} },
 			panic:       nil,
 		},
 	}
@@ -88,8 +86,12 @@ func Test_Subscriber(t *testing.T) {
 	}
 }
 
+type CustomInterface interface {
+	private()
+}
+
 type CompoundProtoMessageInterface interface {
-	proto.Message
+	CustomInterface
 }
 
 type CompoundErrorInterface interface {
@@ -100,6 +102,9 @@ type CompoundError struct {
 	CompoundErrorInterface
 }
 
-type CompoundProtoMessage struct {
-	emptypb.Empty
+type EmptyMessage struct {
+}
+
+type CompoundMessage struct {
+	EmptyMessage
 }

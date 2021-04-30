@@ -17,8 +17,6 @@ var (
 	ErrSubscriberNotAFunction          = errors.New("provided subscriber is not a function")
 	ErrSubscriberInputLengthMissMatch  = errors.New("subscriber must have exactly two input arguments")
 	ErrSubscriberInputNoContext        = errors.New("first argument of subscriber must be a context")
-	ErrSubscriberInputNoProtobuf       = errors.New("second argument does not implement proto.Message interface")
-	ErrSubscriberInputInvalidKind      = errors.New("second argument must be an interface or a pointer to a message that implements proto.Message")
 	ErrSubscriberOutputLengthMissMatch = errors.New("subscriber must have exactly one output argument")
 	ErrSubscriberOutputNoError         = errors.New("returned value must implements `error`")
 )
@@ -123,10 +121,6 @@ func validateSubscriberFn(fn interface{}) error {
 
 	if !fnType.In(0).Implements(contextType) {
 		return ErrSubscriberInputNoContext
-	}
-
-	if fnType.In(1).Kind() != reflect.Ptr && fnType.In(1).Kind() != reflect.Interface {
-		return ErrSubscriberInputInvalidKind
 	}
 
 	if fnType.NumOut() != 1 {

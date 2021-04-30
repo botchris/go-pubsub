@@ -6,14 +6,13 @@ import (
 	"unsafe"
 
 	"github.com/ChristopherCastro/go-pubsub"
-	"google.golang.org/protobuf/proto"
 )
 
 // PublishHandler wraps a call to publish, for interception
 type PublishHandler func(ctx context.Context, m interface{}, topic pubsub.Topic) error
 
 // SubscribeMessageHandler defines the handler invoked by SubscribeInterceptor before a message is delivered to a particular subscriber.
-type SubscribeMessageHandler func(ctx context.Context, s *pubsub.Subscriber, m proto.Message) error
+type SubscribeMessageHandler func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error
 
 // PublishInterceptor provides a hook to intercept each message before it gets published.
 type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHandler
@@ -48,34 +47,34 @@ func New(provider pubsub.Broker, opt ...Option) pubsub.Broker {
 	return c
 }
 
-func (c *broker) Publish(ctx context.Context, m interface{}, topic pubsub.Topic) error {
+func (c *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	if c.opts.publishInterceptor == nil {
-		return c.opts.provider.Publish(ctx, m, topic)
+		return c.opts.provider.Publish(ctx, topic, m)
 	}
 
 	mw := c.opts.publishInterceptor(ctx, func(ctx context.Context, m interface{}, topic pubsub.Topic) error {
-		return c.opts.provider.Publish(ctx, m, topic)
+		return c.opts.provider.Publish(ctx, topic, m)
 	})
 
 	return mw(ctx, m, topic)
 }
 
-func (c *broker) Subscribe(ctx context.Context, subscriber *pubsub.Subscriber, topic pubsub.Topic) error {
+func (c *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	if c.opts.subscribeInterceptor == nil {
-		return c.opts.provider.Subscribe(ctx, subscriber, topic)
+		return c.opts.provider.Subscribe(ctx, topic, subscriber)
 	}
 
-	mw := c.opts.subscribeInterceptor(ctx, func(ctx context.Context, s *pubsub.Subscriber, m proto.Message) error {
+	mw := c.opts.subscribeInterceptor(ctx, func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error {
 		return nil
 	})
 
-	// dark black magic
+	// black magic
 	rs := reflect.ValueOf(subscriber).Elem()
 	rf := rs.FieldByName("callable")
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
 
 	originalCallable := rf.Interface().(reflect.Value)
-	newCallable := reflect.ValueOf(func(ctx context.Context, m proto.Message) error {
+	newCallable := reflect.ValueOf(func(ctx context.Context, m interface{}) error {
 		// apply interceptors upon reception
 		err := mw(ctx, subscriber, m)
 
@@ -98,13 +97,13 @@ func (c *broker) Subscribe(ctx context.Context, subscriber *pubsub.Subscriber, t
 
 	rf.Set(reflect.ValueOf(newCallable))
 
-	return c.opts.provider.Subscribe(ctx, subscriber, topic)
+	return c.opts.provider.Subscribe(ctx, topic, subscriber)
 }
 
 func (c *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	return c.opts.provider.Topics(ctx)
 }
 
-func (c *broker) Shutdown(ctx context.Context) {
-	c.opts.provider.Shutdown(ctx)
+func (c *broker) Shutdown(ctx context.Context) error {
+	return c.opts.provider.Shutdown(ctx)
 }
