@@ -32,30 +32,21 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 	t.RLock()
 	defer t.RUnlock()
 
-	var wg sync.WaitGroup
 	var errs sync.Map
 
 	for _, s := range t.subscribers {
-		wg.Add(1)
 		subscriber := s
+		result := &publishResult{
+			subscriber: subscriber,
+			err:        nil,
+		}
 
-		go func() {
-			defer wg.Done()
+		if err := subscriber.Deliver(ctx, m); err != nil {
+			result.err = err
+		}
 
-			result := &publishResult{
-				subscriber: subscriber,
-				err:        nil,
-			}
-
-			if err := subscriber.Deliver(ctx, m); err != nil {
-				result.err = err
-			}
-
-			errs.Store(result, struct{}{})
-		}()
+		errs.Store(result, struct{}{})
 	}
-
-	wg.Wait()
 
 	out := make([]*publishResult, 0)
 	errs.Range(func(k, v interface{}) bool {

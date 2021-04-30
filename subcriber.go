@@ -37,19 +37,16 @@ type Subscriber struct {
 
 // NewSubscriber builds a new subscriber instance for the given function.
 //
-// This function WILL PANIC if the given handler does not match expected signature: `func (ctx context.Context, m <Type>) error`,
-// where `<Type>` must be anything that implements `proto.Message`, for instance:
+// This function WILL PANIC if the given handler does not match the signature
+// `func (ctx context.Context, m <Type>) error`, e.g.:
 //
 // - func (ctx context.Context, pointer *MyCustomMessage) error
-// - func (ctx context.Context, any proto.Message) error
+// - func (ctx context.Context, any MyCustomMessage) error
 // - func (ctx context.Context, iface MyCustomInterface) error
 //
-// Where:
-//
-// - `*MyCustomMessage` type is expected to implements `proto.Message`.
-// - `MyCustomInterface` is expected to be a composite interface of `proto.Message`
-//
-// Subscriber should return an error if it's unable to properly handle the given message.
+// Subscribers should return an error if they're unable to properly handle a given message.
+// In the other hand, is highly recommended to handle each message asynchronously in a separated goroutine in order
+// to increase Broker's throughput.
 func NewSubscriber(handlerFunc interface{}) *Subscriber {
 	if err := validateSubscriberFn(handlerFunc); err != nil {
 		panic(err)

@@ -13,6 +13,30 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type myMessage struct {
+	body string
+}
+
+func BenchmarkPublish(b *testing.B) {
+	ctx := context.Background()
+	topic := pubsub.Topic("topic")
+	message := myMessage{body: "hello"}
+
+	broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+
+	s1 := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
+		return nil
+	})
+
+	require.NoError(b, broker.Subscribe(ctx, topic, s1))
+
+	b.StartTimer()
+	for i := 0; i <= b.N; i++ {
+		_ = broker.Publish(ctx, topic, message)
+	}
+	b.StopTimer()
+}
+
 func Test_Broker_Subscribe(t *testing.T) {
 	t.Run("GIVEN an empty broker WHEN subscribing to topic THEN broker register such subscriber", func(t *testing.T) {
 		ctx := context.Background()

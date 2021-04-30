@@ -33,6 +33,12 @@ func main() {
 		return nil
 	})
 
+	s3 := pubsub.NewSubscriber(func(ctx context.Context, m string) error {
+		fmt.Printf("[s3] -> %+v\n", m)
+
+		return nil
+	})
+
 	if err := broker.Subscribe(ctx, Topic, s1); err != nil {
 		panic(err)
 	}
@@ -41,16 +47,25 @@ func main() {
 		panic(err)
 	}
 
-	if err := broker.Publish(ctx, Topic, MyMessage{Body: "value(hello world)"}); err!= nil {
+	if err := broker.Subscribe(ctx, Topic, s3); err != nil {
+		panic(err)
+	}
+
+	if err := broker.Publish(ctx, Topic, MyMessage{Body: "value(hello world)"}); err != nil {
 		panic(err)
 	}
 	// Output:
 	//  [s1] -> {Body:value(hello world)}
 
-	if err := broker.Publish(ctx, Topic, &MyMessage{Body: "pointer(hello world)"}); err!= nil {
+	if err := broker.Publish(ctx, Topic, &MyMessage{Body: "pointer(hello world)"}); err != nil {
 		panic(err)
 	}
 	// Output:
 	//  [s2] -> &{Body:pointer(hello world)}
-}
 
+	if err := broker.Publish(ctx, Topic, "string(hello world)"); err != nil {
+		panic(err)
+	}
+	// Output:
+	//  [s3] -> string(hello world)
+}
