@@ -1,6 +1,6 @@
 module github.com/ChristopherCastro/go-pubsub
 
-go 1.14
+go 1.15
 
 require (
 	github.com/oklog/ulid/v2 v2.0.2
