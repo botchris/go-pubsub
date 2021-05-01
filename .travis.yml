@@ -8,4 +8,6 @@ go:
   - "1.16"
 
 script:
+  - go mod download
   - go test -count=1 -race ./...
+  - golangci-lint run -v ./...

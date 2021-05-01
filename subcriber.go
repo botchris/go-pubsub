@@ -30,7 +30,7 @@ var (
 // Subscriber represents a handling function capable of receiving messages
 type Subscriber struct {
 	id          string
-	callable    reflect.Value
+	handlerFunc reflect.Value
 	messageType reflect.Type
 	messageKind reflect.Kind
 }
@@ -60,7 +60,7 @@ func NewSubscriber(handlerFunc interface{}) *Subscriber {
 
 	return &Subscriber{
 		id:          id,
-		callable:    reflect.ValueOf(handlerFunc),
+		handlerFunc: reflect.ValueOf(handlerFunc),
 		messageType: mType,
 		messageKind: mType.Kind(),
 	}
@@ -89,7 +89,7 @@ func (s *Subscriber) Deliver(ctx context.Context, message interface{}) error {
 		reflect.ValueOf(message),
 	}
 
-	if out := s.callable.Call(args); out[0].Interface() != nil {
+	if out := s.handlerFunc.Call(args); out[0].Interface() != nil {
 		return out[0].Interface().(error)
 	}
 

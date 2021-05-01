@@ -15,8 +15,8 @@ type options struct {
 	provider                   pubsub.Broker
 	publishInterceptor         PublishInterceptor
 	chainPublishInterceptors   []PublishInterceptor
-	subscribeInterceptor       SubscribeInterceptor
-	chainSubscribeInterceptors []SubscribeInterceptor
+	subscribeInterceptor       SubscriberInterceptor
+	chainSubscribeInterceptors []SubscriberInterceptor
 }
 
 // funcOption wraps a function that modifies options into an implementation of the Option interface.
@@ -57,10 +57,10 @@ func WithChainPublishInterceptors(interceptors ...PublishInterceptor) Option {
 	})
 }
 
-// WithSubscribeInterceptor returns a Option that sets the SubscribeInterceptor for the broker.
+// WithSubscribeInterceptor returns a Option that sets the SubscriberInterceptor for the broker.
 // Only one interceptor can be installed. The construction of multiple interceptors (e.g., chaining)
 // can be implemented at the caller.
-func WithSubscribeInterceptor(i SubscribeInterceptor) Option {
+func WithSubscribeInterceptor(i SubscriberInterceptor) Option {
 	return newFuncOption(func(o *options) {
 		if o.subscribeInterceptor != nil {
 			panic("the broker subscribe interceptor was already set and may not be reset.")
@@ -74,7 +74,7 @@ func WithSubscribeInterceptor(i SubscribeInterceptor) Option {
 // for subscribing. The first interceptor will be the outer most,
 // while the last interceptor will be the inner most wrapper around the real call.
 // All subscribe interceptors added by this method will be chained.
-func WithChainSubscribeInterceptors(interceptors ...SubscribeInterceptor) Option {
+func WithChainSubscribeInterceptors(interceptors ...SubscriberInterceptor) Option {
 	return newFuncOption(func(o *options) {
 		o.chainSubscribeInterceptors = append(o.chainSubscribeInterceptors, interceptors...)
 	})
@@ -120,10 +120,10 @@ func chainSubscriberInterceptors(c *broker) {
 	// be executed before any other chained interceptors.
 	interceptors := c.opts.chainSubscribeInterceptors
 	if c.opts.subscribeInterceptor != nil {
-		interceptors = append([]SubscribeInterceptor{c.opts.subscribeInterceptor}, c.opts.chainSubscribeInterceptors...)
+		interceptors = append([]SubscriberInterceptor{c.opts.subscribeInterceptor}, c.opts.chainSubscribeInterceptors...)
 	}
 
-	var chainedInt SubscribeInterceptor
+	var chainedInt SubscriberInterceptor
 	if len(interceptors) == 0 {
 		chainedInt = nil
 	} else if len(interceptors) == 1 {
@@ -140,7 +140,7 @@ func chainSubscriberInterceptors(c *broker) {
 }
 
 // getChainPublishHandler recursively generate the chained PublishHandler
-func getChainSubscribeHandler(interceptors []SubscribeInterceptor, curr int, final SubscribeMessageHandler) SubscribeMessageHandler {
+func getChainSubscribeHandler(interceptors []SubscriberInterceptor, curr int, final SubscribeMessageHandler) SubscribeMessageHandler {
 	if curr == len(interceptors)-1 {
 		return final
 	}

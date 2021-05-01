@@ -15,9 +15,12 @@ type Broker interface {
 	// Subscribe subscribes to the given topic
 	Subscribe(ctx context.Context, topic Topic, subscriber *Subscriber) error
 
+	// Unsubscribe removes the given subscriber from the specified topic
+	Unsubscribe(ctx context.Context, topic Topic, subscriber *Subscriber) error
+
 	// Topics retrieves a list of topics registered in this broker
 	Topics(ctx context.Context) ([]Topic, error)
 
-	// Shutdown shutsdown all subscribers gracefully
+	// Shutdown shutdowns all subscribers gracefully
 	Shutdown(ctx context.Context) error
 }

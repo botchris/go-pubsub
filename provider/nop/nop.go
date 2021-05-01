@@ -21,6 +21,10 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
+func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	return nil
+}
+
 func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	return []pubsub.Topic{}, nil
 }

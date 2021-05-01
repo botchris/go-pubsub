@@ -91,6 +91,30 @@ func Test_Broker_Subscribe(t *testing.T) {
 	})
 }
 
+func Test_Broker_Unsubscribe(t *testing.T) {
+	t.Run("GIVEN an broker with one topic and one subscriber WHEN unsubscribing THEN broker removes such subscriber AND topics is deleted", func(t *testing.T) {
+		ctx := context.Background()
+		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		sub := func(ctx context.Context, m proto.Message) error { return nil }
+
+		topics, err := broker.Topics(ctx)
+		require.NoError(t, err)
+		require.Len(t, topics, 0)
+
+		s1 := pubsub.NewSubscriber(sub)
+		require.NoError(t, broker.Subscribe(ctx, "yolo-1", s1))
+
+		topics, err = broker.Topics(ctx)
+		require.NoError(t, err)
+		require.Len(t, topics, 1)
+
+		require.NoError(t, broker.Unsubscribe(ctx, "yolo-1", s1))
+		topics, err = broker.Topics(ctx)
+		require.NoError(t, err)
+		require.Len(t, topics, 0)
+	})
+}
+
 func Test_Broker_Publish(t *testing.T) {
 	t.Run("GIVEN a broker holding one subscriber WHEN publishing to topic THEN subscriber receives the message", func(t *testing.T) {
 		ctx := context.Background()

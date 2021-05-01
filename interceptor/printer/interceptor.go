@@ -10,7 +10,7 @@ import (
 	"github.com/ChristopherCastro/go-pubsub/interceptor"
 )
 
-// PublishInterceptor intercepts each message and prints its content on the given writer
+// PublishInterceptor intercepts each message and prints its content on the given writer in JSON format
 func PublishInterceptor(writer io.Writer) interceptor.PublishInterceptor {
 	return func(ctx context.Context, next interceptor.PublishHandler) interceptor.PublishHandler {
 		return func(ctx context.Context, m interface{}, topic pubsub.Topic) error {
@@ -29,8 +29,9 @@ func PublishInterceptor(writer io.Writer) interceptor.PublishInterceptor {
 	}
 }
 
-// SubscribeInterceptor intercepts each message that is delivered to a subscriber and prints out its content on the given writer
-func SubscribeInterceptor(writer io.Writer) interceptor.SubscribeInterceptor {
+// SubscribeInterceptor intercepts each message that is delivered to a subscribers and prints out its content on the
+// given writer in JSON format
+func SubscribeInterceptor(writer io.Writer) interceptor.SubscriberInterceptor {
 	return func(ctx context.Context, next interceptor.SubscribeMessageHandler) interceptor.SubscribeMessageHandler {
 		return func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error {
 			j, err := json.Marshal(m)

@@ -65,3 +65,19 @@ func (t *topic) subscribe(s *pubsub.Subscriber) {
 
 	t.subscribers[s.ID()] = s
 }
+
+// unsubscribe detaches from this topic the given subscriber, will nop if subscriber is not present.
+func (t *topic) unsubscribe(s *pubsub.Subscriber) {
+	t.Lock()
+	defer t.Unlock()
+
+	delete(t.subscribers, s.ID())
+}
+
+// size how many subscribers are currently attached to this topic
+func (t *topic) size() int {
+	t.RLock()
+	defer t.RUnlock()
+
+	return len(t.subscribers)
+}

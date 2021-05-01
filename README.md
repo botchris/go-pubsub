@@ -1,8 +1,8 @@
 # Overview
 
 The `pubsub` package provides a simple helper library for doing publish-subscribe asynchronous tasks in Golang,
-usually in a web or microservice. `pubsub` allows you to write publishers and subscribers, fully typed, and swap out
-Broker implementations (e.g. Memory, AWS SQS, etc) as required.
+usually in a web or microservice. `pubsub` allows you to write publishers and subscribers, fully statically typed, and
+swap out Broker implementations (e.g. Memory, AWS SQS, etc) as required.
 
 ![broker overview][broker-overview]
 

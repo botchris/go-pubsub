@@ -68,4 +68,13 @@ func main() {
 	}
 	// Output:
 	//  [s3] -> string(hello world)
+
+	if err := broker.Unsubscribe(ctx, Topic, s1); err != nil {
+		panic(err)
+	}
+
+	if err := broker.Publish(ctx, Topic, MyMessage{Body: "value(hello world)"}); err != nil {
+		panic(err)
+	}
+	// Output: <nothing>
 }

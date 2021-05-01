@@ -11,21 +11,18 @@ import (
 // PublishHandler wraps a call to publish, for interception
 type PublishHandler func(ctx context.Context, m interface{}, topic pubsub.Topic) error
 
-// SubscribeMessageHandler defines the handler invoked by SubscribeInterceptor before a message is delivered to a particular subscriber.
+// SubscribeMessageHandler defines the handler invoked by SubscriberInterceptor before a message is delivered to a particular subscriber.
 type SubscribeMessageHandler func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error
 
 // PublishInterceptor provides a hook to intercept each message before it gets published.
 type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHandler
 
-// SubscribeInterceptor provides a hook to intercept each message before it gets delivered to subscribers.
-// Note that interception occurs for each subscriber receiving a message. For instance, if two subscribers `S1` and `S2`
-// receives the same message `M`, then interception logic will be triggered twice for the same message `M`.
-type SubscribeInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
-
-// broker acts as a wrapper of another broker with interception capabilities.
-type broker struct {
-	opts options
-}
+// SubscriberInterceptor provides a hook to intercept each message before it gets delivered to subscribers.
+//
+// Please note that interception occurs for each delivery operation.
+// For instance, if two subscribers `S1` and `S2` receives the same message `M`, then interception logic will be
+// triggered twice for the same message `M`.
+type SubscriberInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
 
 // New returns a new broker with interception capabilities.
 func New(provider pubsub.Broker, opt ...Option) pubsub.Broker {
@@ -47,6 +44,11 @@ func New(provider pubsub.Broker, opt ...Option) pubsub.Broker {
 	return c
 }
 
+// broker acts as a wrapper of another broker with interception capabilities.
+type broker struct {
+	opts options
+}
+
 func (c *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	if c.opts.publishInterceptor == nil {
 		return c.opts.provider.Publish(ctx, topic, m)
@@ -60,6 +62,7 @@ func (c *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 }
 
 func (c *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	// no interceptor, then just deliver
 	if c.opts.subscribeInterceptor == nil {
 		return c.opts.provider.Subscribe(ctx, topic, subscriber)
 	}
@@ -68,21 +71,19 @@ func (c *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 		return nil
 	})
 
-	// black magic
+	// black magic: access to private property holding subscriber's handler function
 	rs := reflect.ValueOf(subscriber).Elem()
-	rf := rs.FieldByName("callable")
+	rf := rs.FieldByName("handlerFunc")
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
-
 	originalCallable := rf.Interface().(reflect.Value)
+
 	newCallable := reflect.ValueOf(func(ctx context.Context, m interface{}) error {
 		// apply interceptors upon reception
-		err := mw(ctx, subscriber, m)
-
-		if err != nil {
+		if err := mw(ctx, subscriber, m); err != nil {
 			return err
 		}
 
-		// call original handling function
+		// pass to the origin handling function
 		args := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(m),
@@ -98,6 +99,10 @@ func (c *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	rf.Set(reflect.ValueOf(newCallable))
 
 	return c.opts.provider.Subscribe(ctx, topic, subscriber)
+}
+
+func (c *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	return c.opts.provider.Unsubscribe(ctx, topic, subscriber)
 }
 
 func (c *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {

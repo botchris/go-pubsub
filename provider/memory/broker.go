@@ -54,6 +54,18 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
+func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	b.Lock()
+	defer b.Unlock()
+
+	b.openTopic(topic).unsubscribe(subscriber)
+	if b.topics[topic].size() == 0 {
+		delete(b.topics, topic)
+	}
+
+	return nil
+}
+
 func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	b.RLock()
 	defer b.RUnlock()

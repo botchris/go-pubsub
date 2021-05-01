@@ -179,7 +179,7 @@ func newPublishInterceptorSpy() *publishInterceptorSpy {
 
 type subscribeInterceptorSpy struct {
 	m  []interface{}
-	fn interceptor.SubscribeInterceptor
+	fn interceptor.SubscriberInterceptor
 }
 
 func newSubscribeInterceptorSpy() *subscribeInterceptorSpy {
