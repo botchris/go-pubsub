@@ -13,12 +13,12 @@ import (
 
 // List of known errors for subscriber signature validation process
 var (
-	ErrSubscriberNil                   = errors.New("encoder can not be nil")
-	ErrSubscriberNotAFunction          = errors.New("provided subscriber is not a function")
-	ErrSubscriberInputLengthMissMatch  = errors.New("subscriber must have exactly two input arguments")
-	ErrSubscriberInputNoContext        = errors.New("first argument of subscriber must be a context")
-	ErrSubscriberOutputLengthMissMatch = errors.New("subscriber must have exactly one output argument")
-	ErrSubscriberOutputNoError         = errors.New("returned value must implements `error`")
+	ErrSubscriberNil                   = errors.New("handler function can not be nil")
+	ErrSubscriberNotAFunction          = errors.New("provided handler is not a function")
+	ErrSubscriberInputLengthMissMatch  = errors.New("handler must have exactly two input arguments")
+	ErrSubscriberInputNoContext        = errors.New("first argument of handler must be a context")
+	ErrSubscriberOutputLengthMissMatch = errors.New("handler must have exactly one output argument")
+	ErrSubscriberOutputNoError         = errors.New("handler output must implements `error` interface")
 )
 
 // predefined values used internally when validation subscriber signatures
@@ -27,7 +27,7 @@ var (
 	errorType   = reflect.TypeOf((*error)(nil)).Elem()
 )
 
-// Subscriber represents a subscriber function capable of receiving messages
+// Subscriber represents a handling function capable of receiving messages
 type Subscriber struct {
 	id          string
 	callable    reflect.Value
@@ -40,15 +40,15 @@ type Subscriber struct {
 // This function WILL PANIC if the given handler does not match the signature
 // `func (ctx context.Context, m <Type>) error`, e.g.:
 //
-// - func (ctx context.Context, pointer *MyCustomMessage) error
-// - func (ctx context.Context, any MyCustomMessage) error
-// - func (ctx context.Context, iface MyCustomInterface) error
+// - func (ctx context.Context, pointer *MyCustomStruct) error
+// - func (ctx context.Context, any MyCustomStruct) error
+// - func (ctx context.Context, custom MyCustomInterface) error
 //
 // Subscribers should return an error if they're unable to properly handle a given message.
 // In the other hand, is highly recommended to handle each message asynchronously in a separated goroutine in order
 // to increase Broker's throughput.
 func NewSubscriber(handlerFunc interface{}) *Subscriber {
-	if err := validateSubscriberFn(handlerFunc); err != nil {
+	if err := validateHandlerFn(handlerFunc); err != nil {
 		panic(err)
 	}
 
@@ -100,8 +100,8 @@ func (s *Subscriber) accepts(in reflect.Type) bool {
 	return in.AssignableTo(s.messageType)
 }
 
-// validateSubscriberFn ensures that the given subscriber function has the form: `func (ctx context.Context, m <Type>) error`
-func validateSubscriberFn(fn interface{}) error {
+// validateHandlerFn ensures that the given handling function has the form: `func (ctx context.Context, m <Type>) error`
+func validateHandlerFn(fn interface{}) error {
 	if fn == nil {
 		return ErrSubscriberNil
 	}
