@@ -1,4 +1,4 @@
-module github.com/ChristopherCastro/go-pubsub
+module github.com/botchris/go-pubsub
 
 go 1.15
 

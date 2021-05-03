@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ChristopherCastro/go-pubsub"
+	"github.com/botchris/go-pubsub"
 	"github.com/stretchr/testify/require"
 )
 

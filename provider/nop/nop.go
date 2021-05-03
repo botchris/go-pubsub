@@ -3,7 +3,7 @@ package nop
 import (
 	"context"
 
-	"github.com/ChristopherCastro/go-pubsub"
+	"github.com/botchris/go-pubsub"
 )
 
 // NewBroker returns a new NO-OP broker instance

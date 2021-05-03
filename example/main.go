@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ChristopherCastro/go-pubsub"
-	"github.com/ChristopherCastro/go-pubsub/provider/memory"
+	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/provider/memory"
 )
 
 var Topic pubsub.Topic = "my-topic"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ChristopherCastro/go-pubsub"
+	"github.com/botchris/go-pubsub"
 )
 
 // topic defines a in-memory topic to which subscriber may subscribe to

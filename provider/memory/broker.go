@@ -8,7 +8,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ChristopherCastro/go-pubsub"
+	"github.com/botchris/go-pubsub"
 )
 
 // SubscriberErrorHandler used to handle subscribers errors when processing a message.

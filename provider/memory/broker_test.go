@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ChristopherCastro/go-pubsub"
-	"github.com/ChristopherCastro/go-pubsub/provider/memory"
+	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/provider/memory"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"

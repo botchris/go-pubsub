@@ -3,7 +3,7 @@ package interceptor
 import (
 	"context"
 
-	"github.com/ChristopherCastro/go-pubsub"
+	"github.com/botchris/go-pubsub"
 )
 
 // Option sets options for a interceptor broker instance.

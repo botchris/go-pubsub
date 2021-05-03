@@ -3,7 +3,7 @@ package nop_test
 import (
 	"testing"
 
-	"github.com/ChristopherCastro/go-pubsub/provider/nop"
+	"github.com/botchris/go-pubsub/provider/nop"
 	"github.com/stretchr/testify/require"
 )
 

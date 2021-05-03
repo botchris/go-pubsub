@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ChristopherCastro/go-pubsub"
-	"github.com/ChristopherCastro/go-pubsub/interceptor"
-	"github.com/ChristopherCastro/go-pubsub/provider/nop"
+	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/interceptor"
+	"github.com/botchris/go-pubsub/provider/nop"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ChristopherCastro/go-pubsub"
-	"github.com/ChristopherCastro/go-pubsub/interceptor"
+	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/interceptor"
 )
 
 // PublishInterceptor intercepts each message and prints its content on the given writer in JSON format
