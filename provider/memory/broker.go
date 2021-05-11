@@ -32,10 +32,10 @@ func NewBroker(subErrHandler SubscriberErrorHandler) pubsub.Broker {
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
-	b.RLock()
-	defer b.RUnlock()
-
+	b.Lock()
 	t := b.openTopic(topic)
+	b.Unlock()
+
 	for _, result := range t.publish(ctx, m) {
 		if result.err != nil {
 			b.subErrHandler(ctx, t.id, result.subscriber, m, result.err)
@@ -58,8 +58,10 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	b.Lock()
 	defer b.Unlock()
 
-	b.openTopic(topic).unsubscribe(subscriber)
-	if b.topics[topic].size() == 0 {
+	t := b.openTopic(topic)
+	t.unsubscribe(subscriber)
+
+	if t.size() == 0 {
 		delete(b.topics, topic)
 	}
 
