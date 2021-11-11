@@ -2,6 +2,7 @@ package sns_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -52,7 +53,12 @@ func TestBroker(t *testing.T) {
 	require.Len(t, topics, 1)
 
 	received := ""
+	var receivedMx sync.RWMutex
+
 	sub := pubsub.NewSubscriber(func(ctx context.Context, msg string) error {
+		receivedMx.Lock()
+		defer receivedMx.Unlock()
+
 		received = msg
 
 		return nil
@@ -67,6 +73,9 @@ func TestBroker(t *testing.T) {
 	require.NoError(t, broker.Publish(ctx, topic, send))
 
 	require.Eventually(t, func() bool {
+		receivedMx.RLock()
+		defer receivedMx.RUnlock()
+
 		return received == send
 	}, 10*time.Second, time.Millisecond*100)
 }
