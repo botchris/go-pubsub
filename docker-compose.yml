@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: "localstack/localstack:0.12.6"
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sns,sqs
+      - HOSTNAME=localhost
+      - IMAGE_NAME=localstack/localstack:0.12.6
+      - USE_LIGHT_IMAGE=1
+      - START_WEB=0
+      - DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LS_LOG=error
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
