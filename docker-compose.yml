@@ -16,3 +16,12 @@ services:
       - LS_LOG=error
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+  kubemq:
+    image: kubemq/kubemq:latest
+    container_name: kubemq
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+      - "50000:50000"
+    environment:
+      - KUBEMQ_HOST=kubemq
