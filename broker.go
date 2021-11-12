@@ -7,6 +7,11 @@ import (
 // Topic represents/identifies a particular Topic
 type Topic string
 
+// String returns the string representation of the Topic.
+func (t Topic) String() string {
+	return string(t)
+}
+
 // Broker pub-sub broker definition
 type Broker interface {
 	// Publish the given message onto the given topic
