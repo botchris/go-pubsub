@@ -16,78 +16,171 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBroker(t *testing.T) {
+func TestSingleBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a sns topic, a sqs queue and a sns broker linked to such queue", func(t *testing.T) {
+	t.Run("GIVEN a sns topic and a sns broker linked to its queue", func(t *testing.T) {
 		cfg := awsConfig(t)
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
-		queueName := "test-queue"
-		topicName := "test-topic"
 
-		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String(topicName)})
+		broker, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue")
+		require.NoError(t, err)
+		require.NotNil(t, broker)
+
+		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
 		topicARN := *tRes.TopicArn
 		topic := pubsub.Topic(topicARN)
 
-		qRes, err := sqsCli.CreateQueue(ctx, &awssqs.CreateQueueInput{QueueName: aws.String(queueName)})
-		require.NoError(t, err)
-		queueURL := *qRes.QueueUrl
-
-		encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
-		decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-		broker := sns.NewBroker(ctx, snsCli, sqsCli, queueURL, sns.WithEncoder(encoder), sns.WithDecoder(decoder), sns.WithWaitTimeSeconds(1))
-		require.NotNil(t, broker)
-
 		t.Run("WHEN asking for registered topics THEN one topic is informed", func(t *testing.T) {
-			topics, err := broker.Topics(ctx)
-			require.NoError(t, err)
+			topics, tErr := broker.Topics(ctx)
+
+			require.NoError(t, tErr)
 			require.Len(t, topics, 1)
 			require.EqualValues(t, topicARN, topics[0].String())
 		})
 
-		var receiveMu sync.RWMutex
-		received := ""
-		receiveCount := 0
-		handler := func(ctx context.Context, msg string) error {
-			receiveMu.Lock()
-			defer receiveMu.Unlock()
+		consumer1 := &consumer{}
+		consumer2 := &consumer{}
 
-			received = msg
-			receiveCount++
+		t.Run("WHEN registering two subscribers to such topic", func(t *testing.T) {
+			sub1 := pubsub.NewSubscriber(consumer1.handle)
+			require.NoError(t, broker.Subscribe(ctx, topic, sub1))
 
-			return nil
-		}
+			sub2 := pubsub.NewSubscriber(consumer2.handle)
+			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
-		t.Run("WHEN adding a new subscriber to such topic a message to such topic", func(t *testing.T) {
-			sub := pubsub.NewSubscriber(handler)
+			t.Run("THEN sns registers only one subscription as they are the same topic", func(t *testing.T) {
+				subs, lErr := snsCli.ListSubscriptions(ctx, &awssns.ListSubscriptionsInput{})
 
-			require.NoError(t, broker.Subscribe(ctx, topic, sub))
-
-			t.Run("THEN sns registers such subscription", func(t *testing.T) {
-				subs, err := snsCli.ListSubscriptions(ctx, &awssns.ListSubscriptionsInput{})
-				require.NoError(t, err)
+				require.NoError(t, lErr)
 				require.Len(t, subs.Subscriptions, 1)
 				require.EqualValues(t, topicARN, *subs.Subscriptions[0].TopicArn)
 			})
 		})
 
-		t.Run("WHEN publishing a message to the topic", func(t *testing.T) {
-			send := "hello world"
-			require.NoError(t, broker.Publish(ctx, topic, send))
+		t.Run("WHEN publishing N messages to the topic", func(t *testing.T) {
+			sent := []string{
+				"hello world",
+				"lorem ipsum",
+				"dolorem sit amet",
+			}
 
-			t.Run("THEN subscriber of such topic eventually receives the message only once", func(t *testing.T) {
-				require.Eventually(t, func() bool {
-					receiveMu.RLock()
-					defer receiveMu.RUnlock()
+			for _, msg := range sent {
+				require.NoError(t, broker.Publish(ctx, topic, msg))
+			}
 
-					return received == send && receiveCount == 1
-				}, 10*time.Second, time.Millisecond*100)
+			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
+				require.Eventually(t, func() bool { return consumer1.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool { return consumer2.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
 			})
 		})
 	})
+}
+
+func TestMultiBroker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a sns topic and two brokers (B1 and B2) with one subscriber each", func(t *testing.T) {
+		cfg := awsConfig(t)
+		snsCli := awssns.NewFromConfig(cfg)
+		sqsCli := awssqs.NewFromConfig(cfg)
+
+		broker1, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
+		require.NoError(t, err)
+		require.NotNil(t, broker1)
+
+		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b2")
+		require.NoError(t, err)
+		require.NotNil(t, broker2)
+
+		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
+		require.NoError(t, err)
+		topicARN := *tRes.TopicArn
+		topic := pubsub.Topic(topicARN)
+
+		consumer1 := &consumer{}
+		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+
+		consumer2 := &consumer{}
+		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
+			sent := []string{
+				"hello world",
+				"lorem ipsum",
+				"dolorem sit amet",
+			}
+
+			for _, msg := range sent {
+				require.NoError(t, broker1.Publish(ctx, topic, msg))
+			}
+
+			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
+				require.Eventually(t, func() bool { return consumer1.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool { return consumer2.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
+			})
+		})
+	})
+}
+
+type consumer struct {
+	rcv []string
+	mu  sync.RWMutex
+}
+
+func (c *consumer) handle(_ context.Context, msg string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.rcv = append(c.rcv, msg)
+
+	return nil
+}
+
+func (c *consumer) hasExactlyOnce(expected []string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	seen := make(map[string]int)
+
+	for _, m1 := range expected {
+		for _, m2 := range c.rcv {
+			if m1 == m2 {
+				seen[m1]++
+
+				if seen[m1] > 1 {
+					return false
+				}
+			}
+		}
+	}
+
+	return len(seen) == len(expected)
+}
+
+func prepareBroker(
+	ctx context.Context,
+	sqsClient *awssqs.Client,
+	snsClient *awssns.Client,
+	queueName string,
+) (pubsub.Broker, error) {
+	qRes, err := sqsClient.CreateQueue(ctx, &awssqs.CreateQueueInput{QueueName: aws.String(queueName)})
+	if err != nil {
+		return nil, err
+	}
+
+	queueURL := *qRes.QueueUrl
+	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
+	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
+	broker := sns.NewBroker(ctx, snsClient, sqsClient, queueURL, sns.WithEncoder(encoder), sns.WithDecoder(decoder), sns.WithWaitTimeSeconds(1))
+
+	return broker, nil
 }
 
 func awsConfig(t *testing.T) aws.Config {

@@ -4,6 +4,8 @@ package sns
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -14,14 +16,17 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+// ErrBadConfiguration is returned when the configuration is invalid.
+var ErrBadConfiguration = errors.New("bad configuration")
+
 type broker struct {
 	snsClient    AWSSNSAPI
 	sqsClient    AWSSQSAPI
 	sqsQueueURL  string
 	runnerCancel context.CancelFunc
 	runnerCtx    context.Context
-	subs         map[pubsub.Topic]map[string]*subscription
 	options      *options
+	subs         map[pubsub.Topic]map[string]*subscription
 	mu           sync.RWMutex
 }
 
@@ -32,6 +37,7 @@ type subscription struct {
 }
 
 // NewBroker returns a broker that uses AWS SNS service for pub/sub messaging over a SQS queue.
+// This broker will start running a background goroutine that will poll the SQS queue for new messages.
 func NewBroker(
 	ctx context.Context,
 	snsClient AWSSNSAPI,
@@ -45,6 +51,12 @@ func NewBroker(
 		maxMessages:       5,
 		visibilityTimeout: 30,
 		waitTimeSeconds:   15,
+		encoder: func(msg interface{}) ([]byte, error) {
+			return nil, fmt.Errorf("%w: no encoder was provided for sns broker", ErrBadConfiguration)
+		},
+		decoder: func(data []byte) (interface{}, error) {
+			return nil, fmt.Errorf("%w: no decoder was provided for sns broker", ErrBadConfiguration)
+		},
 	}
 
 	for _, o := range option {
@@ -63,16 +75,14 @@ func NewBroker(
 		subs:         make(map[pubsub.Topic]map[string]*subscription),
 	}
 
-	go b.run()
+	defer func() {
+		go b.run()
+	}()
 
 	return b
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
-	if b.options.encoder == nil {
-		return ErrNoEncoder
-	}
-
 	message, err := b.options.encoder(m)
 	if err != nil {
 		return err
@@ -91,10 +101,6 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 }
 
 func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
-	if b.options.decoder == nil {
-		return ErrNoEncoder
-	}
-
 	sub, err := b.snsClient.Subscribe(ctx, &sns.SubscribeInput{
 		Endpoint: aws.String(b.sqsQueueURL),
 		Protocol: aws.String("sqs"),
