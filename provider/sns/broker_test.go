@@ -56,6 +56,9 @@ func TestSingleBroker(t *testing.T) {
 			sub2 := pubsub.NewSubscriber(consumer2.handle)
 			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
+			// wait async subscription to take place
+			time.Sleep(time.Second)
+
 			t.Run("THEN sns registers only one subscription as they are the same topic", func(t *testing.T) {
 				subs, lErr := snsCli.ListSubscriptions(ctx, &awssns.ListSubscriptionsInput{})
 
@@ -80,6 +83,7 @@ func TestSingleBroker(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
 				}, 10*time.Second, time.Millisecond*100)
+
 				require.Eventually(t, func() bool {
 					return consumer2.received().hasExactlyOnce(sent...)
 				}, 10*time.Second, time.Millisecond*100)
@@ -126,6 +130,9 @@ func TestMultiInstanceBroker(t *testing.T) {
 		consumer2 := &consumer{}
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		// wait async subscription to take place
+		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
 			sent := []string{
