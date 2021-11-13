@@ -29,6 +29,10 @@ func TestSingleBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
+		defer func() {
+			_ = broker.Shutdown(ctx)
+		}()
+
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
 		topicARN := *tRes.TopicArn
@@ -51,6 +55,9 @@ func TestSingleBroker(t *testing.T) {
 
 			sub2 := pubsub.NewSubscriber(consumer2.handle)
 			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
+
+			// wait async subscription to take place
+			time.Sleep(time.Second)
 
 			t.Run("THEN sns registers only one subscription as they are the same topic", func(t *testing.T) {
 				subs, lErr := snsCli.ListSubscriptions(ctx, &awssns.ListSubscriptionsInput{})
@@ -76,6 +83,7 @@ func TestSingleBroker(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
 				}, 10*time.Second, time.Millisecond*100)
+
 				require.Eventually(t, func() bool {
 					return consumer2.received().hasExactlyOnce(sent...)
 				}, 10*time.Second, time.Millisecond*100)
@@ -98,9 +106,17 @@ func TestMultiInstanceBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
+		defer func() {
+			_ = broker1.Shutdown(ctx)
+		}()
+
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
+
+		defer func() {
+			_ = broker2.Shutdown(ctx)
+		}()
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -114,6 +130,9 @@ func TestMultiInstanceBroker(t *testing.T) {
 		consumer2 := &consumer{}
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		// wait async subscription to take place
+		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
 			sent := []string{
@@ -154,9 +173,17 @@ func TestMultiHostBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
+		defer func() {
+			_ = broker1.Shutdown(ctx)
+		}()
+
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b2")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
+
+		defer func() {
+			_ = broker2.Shutdown(ctx)
+		}()
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -170,6 +197,9 @@ func TestMultiHostBroker(t *testing.T) {
 		consumer2 := &consumer{}
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		// wait async subscription to take place
+		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
 			sent := []string{
@@ -185,10 +215,11 @@ func TestMultiHostBroker(t *testing.T) {
 			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
-				}, 10*time.Second, time.Millisecond*100)
+				}, 5*time.Second, time.Millisecond*100)
+
 				require.Eventually(t, func() bool {
 					return consumer2.received().hasExactlyOnce(sent...)
-				}, 10*time.Second, time.Millisecond*100)
+				}, 5*time.Second, time.Millisecond*100)
 			})
 		})
 	})
@@ -258,9 +289,15 @@ func prepareBroker(
 	queueURL := *qRes.QueueUrl
 	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
 	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-	broker := sns.NewBroker(ctx, snsClient, sqsClient, queueURL, sns.WithEncoder(encoder), sns.WithDecoder(decoder), sns.WithWaitTimeSeconds(1))
 
-	return broker, nil
+	return sns.NewBroker(ctx,
+		sns.WithSNSClient(snsClient),
+		sns.WithSQSClient(sqsClient),
+		sns.WithSQSQueueURL(queueURL),
+		sns.WithEncoder(encoder),
+		sns.WithDecoder(decoder),
+		sns.WithWaitTimeSeconds(1),
+	)
 }
 
 func awsConfig(t *testing.T) aws.Config {
