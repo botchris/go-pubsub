@@ -24,8 +24,8 @@ type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHa
 // triggered twice for the same message `M`.
 type SubscriberInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
 
-// New returns a new broker with interception capabilities.
-func New(provider pubsub.Broker, opt ...Option) pubsub.Broker {
+// NewBroker returns a new broker with interception capabilities.
+func NewBroker(provider pubsub.Broker, opt ...Option) pubsub.Broker {
 	opts := options{
 		provider: provider,
 	}
@@ -105,8 +105,8 @@ func (c *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	return c.opts.provider.Unsubscribe(ctx, topic, subscriber)
 }
 
-func (c *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
-	return c.opts.provider.Topics(ctx)
+func (c *broker) Subscriptions(ctx context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
+	return c.opts.provider.Subscriptions(ctx)
 }
 
 func (c *broker) Shutdown(ctx context.Context) error {

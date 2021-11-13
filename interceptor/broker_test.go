@@ -18,7 +18,7 @@ import (
 func Test_NewInterceptor(t *testing.T) {
 	t.Run("GIVEN an interceptor instance WHEN creating a broker with no options THEN a new broker is created", func(t *testing.T) {
 		broker := nop.NewBroker()
-		instance := interceptor.New(broker)
+		instance := interceptor.NewBroker(broker)
 
 		require.NotNil(t, instance)
 	})
@@ -26,7 +26,7 @@ func Test_NewInterceptor(t *testing.T) {
 	t.Run("GIVEN an interceptor instance WHEN creating a broker with one option THEN a new broker is created", func(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newPublishInterceptorSpy()
-		instance := interceptor.New(broker, interceptor.WithPublishInterceptor(spy.fn))
+		instance := interceptor.NewBroker(broker, interceptor.WithPublishInterceptor(spy.fn))
 
 		require.NotNil(t, instance)
 	})
@@ -38,7 +38,7 @@ func Test_Publish(t *testing.T) {
 
 	t.Run("GIVEN an interceptor instance with zero interceptors configured WHEN publishing a message THEN no error is raised", func(t *testing.T) {
 		broker := nop.NewBroker()
-		instance := interceptor.New(broker)
+		instance := interceptor.NewBroker(broker)
 
 		require.NotNil(t, instance)
 		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
@@ -47,7 +47,7 @@ func Test_Publish(t *testing.T) {
 	t.Run("GIVEN an interceptor instance with one publish interceptor WHEN publishing a message THEN message is intercepted", func(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newPublishInterceptorSpy()
-		instance := interceptor.New(broker, interceptor.WithPublishInterceptor(spy.fn))
+		instance := interceptor.NewBroker(broker, interceptor.WithPublishInterceptor(spy.fn))
 
 		require.NotNil(t, instance)
 		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
@@ -71,7 +71,7 @@ func Test_Publish(t *testing.T) {
 			return interceptor2.fn(ctx, next)
 		}
 
-		instance := interceptor.New(broker, interceptor.WithChainPublishInterceptors(wrapper1, wrapper2))
+		instance := interceptor.NewBroker(broker, interceptor.WithChainPublishInterceptors(wrapper1, wrapper2))
 
 		require.NotNil(t, instance)
 
@@ -96,7 +96,7 @@ func Test_Subscribe(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newSubscribeInterceptorSpy()
 		tid := pubsub.Topic("yolo")
-		instance := interceptor.New(broker, interceptor.WithSubscribeInterceptor(spy.fn))
+		instance := interceptor.NewBroker(broker, interceptor.WithSubscribeInterceptor(spy.fn))
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			return nil
 		})
@@ -129,7 +129,7 @@ func Test_Subscribe(t *testing.T) {
 		}
 
 		tid := pubsub.Topic("yolo")
-		instance := interceptor.New(broker, interceptor.WithChainSubscribeInterceptors(wrapper1, wrapper2))
+		instance := interceptor.NewBroker(broker, interceptor.WithChainSubscribeInterceptors(wrapper1, wrapper2))
 		srx := &lockedCounter{}
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			srx.inc()
