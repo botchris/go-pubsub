@@ -154,7 +154,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 
 func TestMultiHostBroker(t *testing.T) {
 	// This test simulates multiple applications reading from the same topic.
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	t.Run("GIVEN a sns topic and two brokers (B1 and B2) with one subscriber each", func(t *testing.T) {
@@ -191,6 +191,9 @@ func TestMultiHostBroker(t *testing.T) {
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
 
+		// wait async subscription to take place
+		time.Sleep(time.Second)
+
 		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
 			sent := []string{
 				"hello world",
@@ -205,10 +208,11 @@ func TestMultiHostBroker(t *testing.T) {
 			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
-				}, 10*time.Second, time.Millisecond*100)
+				}, 5*time.Second, time.Millisecond*100)
+
 				require.Eventually(t, func() bool {
 					return consumer2.received().hasExactlyOnce(sent...)
-				}, 10*time.Second, time.Millisecond*100)
+				}, 5*time.Second, time.Millisecond*100)
 			})
 		})
 	})
