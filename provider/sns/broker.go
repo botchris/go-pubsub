@@ -19,6 +19,7 @@ type broker struct {
 	runnerCancel context.CancelFunc
 	runnerCtx    context.Context
 	options      *options
+	topics       *topicsCache
 	subs         map[pubsub.Topic]map[string]*subscription
 	mu           sync.RWMutex
 }
@@ -30,14 +31,17 @@ type subscription struct {
 }
 
 // NewBroker returns a broker that uses AWS SNS service for pub/sub messaging over a SQS queue.
+//
 // This broker will start running a background goroutine that will poll the SQS queue for new messages.
+// Topics must be firstly created on AWS SNS before starting this broker, and each Topic must be tagged with the
+// "topic-name" key on AWS. This is used to hold the name of the topic as seen by the broker (`pubsub.Topic` data type).
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
-		ctx:               ctx,
-		deliverTimeout:    3 * time.Second,
-		maxMessages:       5,
-		visibilityTimeout: 30,
-		waitTimeSeconds:   15,
+		deliverTimeout:       3 * time.Second,
+		topicsReloadInterval: 60 * time.Second,
+		maxMessages:          5,
+		visibilityTimeout:    30,
+		waitTimeSeconds:      15,
 	}
 
 	for _, o := range option {
@@ -64,12 +68,17 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		return nil, errors.New("no SQS queue URL was provided")
 	}
 
-	ctx, cancel := context.WithCancel(opts.ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	b := &broker{
 		runnerCancel: cancel,
 		runnerCtx:    ctx,
 		options:      opts,
+		topics:       newTopicsCache(opts.snsClient),
 		subs:         make(map[pubsub.Topic]map[string]*subscription),
+	}
+
+	if err := b.topics.reloadCache(ctx); err != nil {
+		return nil, err
 	}
 
 	defer func() {
@@ -80,6 +89,11 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+	topicARN, err := b.topics.arnOf(topic)
+	if err != nil {
+		return err
+	}
+
 	message, err := b.options.encoder(m)
 	if err != nil {
 		return err
@@ -87,7 +101,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 
 	_, err = b.options.snsClient.Publish(ctx, &sns.PublishInput{
 		Message:  aws.String(string(message)),
-		TopicArn: aws.String(string(topic)),
+		TopicArn: aws.String(topicARN),
 	})
 
 	if err != nil {
@@ -98,10 +112,15 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 }
 
 func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	topicARN, err := b.topics.arnOf(topic)
+	if err != nil {
+		return err
+	}
+
 	sub, err := b.options.snsClient.Subscribe(ctx, &sns.SubscribeInput{
 		Endpoint: aws.String(b.options.sqsQueueURL),
 		Protocol: aws.String("sqs"),
-		TopicArn: aws.String(string(topic)),
+		TopicArn: aws.String(topicARN),
 	})
 
 	if err != nil {
@@ -152,39 +171,11 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 }
 
 func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
-	var next string
-
 	out := make([]pubsub.Topic, 0)
-	res, err := b.options.snsClient.ListTopics(ctx, &sns.ListTopicsInput{})
+	topics := b.topics.all()
 
-	if err != nil {
-		return out, err
-	}
-
-	if res.NextToken != nil {
-		next = *res.NextToken
-	}
-
-	for i := range res.Topics {
-		out = append(out, pubsub.Topic(*res.Topics[i].TopicArn))
-	}
-
-	for next != "" {
-		res, err = b.options.snsClient.ListTopics(ctx, &sns.ListTopicsInput{
-			NextToken: aws.String(next),
-		})
-
-		if err != nil {
-			return out, err
-		}
-
-		if res.NextToken != nil {
-			next = *res.NextToken
-		}
-
-		for i := range res.Topics {
-			out = append(out, pubsub.Topic(*res.Topics[i].TopicArn))
-		}
+	for name := range topics {
+		out = append(out, name)
 	}
 
 	return out, nil
@@ -215,9 +206,14 @@ func (b *broker) Shutdown(ctx context.Context) error {
 
 func (b *broker) run() {
 	done := b.runnerCtx.Done()
+	topicTicker := time.NewTicker(b.options.topicsReloadInterval)
+	defer topicTicker.Stop()
 
 	for {
 		select {
+		case <-topicTicker.C:
+			_ = b.topics.reloadCache(b.runnerCtx)
+			continue
 		case <-done:
 			return
 		default:
@@ -246,7 +242,7 @@ func (b *broker) run() {
 			noty.ReceiptHandle = *n.ReceiptHandle
 
 			b.mu.RLock()
-			subs, ok := b.subs[noty.TopicARN]
+			subs, ok := b.subs[b.topics.nameOf(noty.TopicARN)]
 			b.mu.RUnlock()
 
 			if !ok {
