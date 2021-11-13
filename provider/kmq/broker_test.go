@@ -30,16 +30,64 @@ func TestSingleBroker(t *testing.T) {
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
-		// wait for server to ack subscription async
+		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing a message to topic X", func(t *testing.T) {
 			msg := "test-message"
 			require.NoError(t, broker.Publish(ctx, topic, msg))
 
-			t.Run("THEN subscribers eventually receives the message the same message", func(t *testing.T) {
+			t.Run("THEN subscribers eventually receives the same message", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.hasExactlyOnce(msg) && consumer2.hasExactlyOnce(msg)
+				}, 3*time.Second, time.Millisecond*100)
+			})
+		})
+	})
+}
+
+func TestMultiBroker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN two brokers with the same id and with one subscriber each to the same topic", func(t *testing.T) {
+		broker1, err := prepareBroker(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, broker1)
+
+		broker2, err := prepareBroker(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, broker2)
+
+		topic := pubsub.Topic("test-topic")
+
+		consumer1 := &consumer{}
+		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+
+		consumer2 := &consumer{}
+		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		// wait for server to ack async subscription
+		time.Sleep(time.Second)
+
+		t.Run("WHEN publishing N message to the topic", func(t *testing.T) {
+			send := []string{
+				"test-message-1",
+				"test-message-2",
+				"test-message-3",
+				"test-message-4",
+				"test-message-5",
+			}
+
+			for _, msg := range send {
+				require.NoError(t, broker1.Publish(ctx, topic, msg))
+			}
+
+			t.Run("THEN all subscribers eventually receives the same set of messages", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					return consumer1.hasExactlyOnce(send...) && consumer2.hasExactlyOnce(send...)
 				}, 3*time.Second, time.Millisecond*100)
 			})
 		})
