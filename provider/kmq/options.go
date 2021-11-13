@@ -1,0 +1,124 @@
+package kmq
+
+import (
+	"time"
+)
+
+// Option defines a function signature for configuration options.
+type Option interface {
+	apply(*options)
+}
+
+type options struct {
+	serverHost       string
+	serverPort       int
+	clientID         string
+	groupID          string
+	encoder          Encoder
+	decoder          Decoder
+	onStreamError    func(error)
+	onSubscribeError func(error)
+	deliverTimeout   time.Duration
+	autoReconnect    bool
+}
+
+type fnOption struct {
+	f func(*options)
+}
+
+func (f fnOption) apply(o *options) {
+	f.f(o)
+}
+
+// WithServerHost sets KubeMQ server host. e.g. `localhost`
+func WithServerHost(host string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.serverHost = host
+		},
+	}
+}
+
+// WithServerPort sets KubeMQ server grpc port. Default: 50000
+func WithServerPort(serverPort int) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.serverPort = serverPort
+		},
+	}
+}
+
+// WithClientID sets the client ID to be used when registering to KubeMQ server.
+func WithClientID(clientID string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.clientID = clientID
+		},
+	}
+}
+
+// WithGroupID sets the group ID for receiving messages.
+// Subscriptions under the same groupID share the messages in a round-robin fashion.
+func WithGroupID(groupID string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.groupID = groupID
+		},
+	}
+}
+
+// WithEncoder sets the encoder function to be used by broker.
+// Use this to define how messages are encoded before sending to the SNS service.
+func WithEncoder(e Encoder) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.encoder = e
+		},
+	}
+}
+
+// WithDecoder sets the decoder function to be used by broker.
+// Use this to define how messages are decoded after receiving from the SQS service.
+func WithDecoder(d Decoder) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.decoder = d
+		},
+	}
+}
+
+// WithStreamErrorHandler sets the function to be called when an error occurs when streaming events to KubeMQ (publish).
+func WithStreamErrorHandler(f func(error)) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.onStreamError = f
+		},
+	}
+}
+
+// WithSubscribeErrorHandler sets the function to be called when an error occurs when receiving a message from KubeMQ.
+func WithSubscribeErrorHandler(f func(error)) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.onSubscribeError = f
+		},
+	}
+}
+
+// WithDeliveryTimeout sets the max execution time a subscriber has to handle a message. Default: 5s
+func WithDeliveryTimeout(t time.Duration) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.deliverTimeout = t
+		},
+	}
+}
+
+// WithAutoReconnect sets the auto reconnect flag. Default: true
+func WithAutoReconnect(b bool) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.autoReconnect = b
+		},
+	}
+}
