@@ -3,8 +3,10 @@ package kmq
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/botchris/go-pubsub"
 	"github.com/kubemq-io/kubemq-go"
@@ -25,10 +27,34 @@ type subscription struct {
 	subscriber *pubsub.Subscriber
 }
 
+// NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
-	opts := &options{}
+	opts := &options{
+		serverPort:       50000,
+		deliverTimeout:   5 * time.Second,
+		onStreamError:    func(err error) {},
+		onSubscribeError: func(err error) {},
+		autoReconnect:    true,
+	}
+
 	for _, o := range option {
 		o.apply(opts)
+	}
+
+	if opts.serverHost == "" {
+		return nil, errors.New("no server host was provided")
+	}
+
+	if opts.serverPort <= 0 {
+		return nil, errors.New("no server port was provided")
+	}
+
+	if opts.encoder == nil {
+		return nil, errors.New("no encoder was provided")
+	}
+
+	if opts.decoder == nil {
+		return nil, errors.New("no decoder was provided")
 	}
 
 	client, err := kubemq.NewEventsClient(ctx,
@@ -36,7 +62,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		kubemq.WithClientId(opts.clientID),
 		kubemq.WithTransportType(kubemq.TransportTypeGRPC),
 		kubemq.WithCheckConnection(true),
-		kubemq.WithAutoReconnect(true),
+		kubemq.WithAutoReconnect(opts.autoReconnect),
 	)
 
 	if err != nil {
@@ -45,7 +71,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 
 	sender, err := client.Stream(ctx, func(err error) {
 		if err != nil {
-			fmt.Println(err.Error())
+			opts.onStreamError(err)
 		}
 	})
 
@@ -103,12 +129,9 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 		subscriber: subscriber,
 	}
 
-	// TODO: optimize,
-	// 	use one single physical subscription per topic, and logically split across local subscribers
-	//  (pubsub.Subscriber)
 	err := b.client.Subscribe(ctx, req, func(msg *kubemq.Event, err error) {
 		if err != nil {
-			// TODO: monitor error
+			b.options.onSubscribeError(err)
 			return
 		}
 
@@ -154,6 +177,16 @@ func (b *broker) Topics(_ context.Context) ([]pubsub.Topic, error) {
 }
 
 func (b *broker) Shutdown(_ context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for topic, subs := range b.subs {
+		for id, sub := range subs {
+			sub.cancel()
+			delete(b.subs[topic], id)
+		}
+	}
+
 	return b.client.Close()
 }
 
