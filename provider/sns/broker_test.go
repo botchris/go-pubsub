@@ -29,7 +29,9 @@ func TestSingleBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
-		defer broker.Shutdown(ctx)
+		defer func() {
+			_ = broker.Shutdown(ctx)
+		}()
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -100,13 +102,17 @@ func TestMultiInstanceBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		defer broker1.Shutdown(ctx)
+		defer func() {
+			_ = broker1.Shutdown(ctx)
+		}()
 
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
-		defer broker2.Shutdown(ctx)
+		defer func() {
+			_ = broker2.Shutdown(ctx)
+		}()
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -148,7 +154,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 
 func TestMultiHostBroker(t *testing.T) {
 	// This test simulates multiple applications reading from the same topic.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	t.Run("GIVEN a sns topic and two brokers (B1 and B2) with one subscriber each", func(t *testing.T) {
@@ -160,13 +166,17 @@ func TestMultiHostBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		defer broker1.Shutdown(ctx)
+		defer func() {
+			_ = broker1.Shutdown(ctx)
+		}()
 
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b2")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
-		defer broker2.Shutdown(ctx)
+		defer func() {
+			_ = broker2.Shutdown(ctx)
+		}()
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
