@@ -12,6 +12,9 @@ type Option interface {
 
 type options struct {
 	ctx               context.Context
+	snsClient         AWSSNSAPI
+	sqsClient         AWSSQSAPI
+	sqsQueueURL       string
 	encoder           Encoder
 	decoder           Decoder
 	deliverTimeout    time.Duration
@@ -33,6 +36,33 @@ func WithContext(ctx context.Context) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.ctx = ctx
+		},
+	}
+}
+
+// WithSNSClient sets the SNS client to be used by broker.
+func WithSNSClient(snsClient AWSSNSAPI) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.snsClient = snsClient
+		},
+	}
+}
+
+// WithSQSClient sets the SQS client to be used by broker.
+func WithSQSClient(sqsClient AWSSQSAPI) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.sqsClient = sqsClient
+		},
+	}
+}
+
+// WithSQSQueueURL sets the SQS queue URL to be used by broker.
+func WithSQSQueueURL(sqsQueueURL string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.sqsQueueURL = sqsQueueURL
 		},
 	}
 }

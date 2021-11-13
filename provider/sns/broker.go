@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -16,13 +15,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-// ErrBadConfiguration is returned when the configuration is invalid.
-var ErrBadConfiguration = errors.New("bad configuration")
-
 type broker struct {
-	snsClient    AWSSNSAPI
-	sqsClient    AWSSQSAPI
-	sqsQueueURL  string
 	runnerCancel context.CancelFunc
 	runnerCtx    context.Context
 	options      *options
@@ -38,37 +31,41 @@ type subscription struct {
 
 // NewBroker returns a broker that uses AWS SNS service for pub/sub messaging over a SQS queue.
 // This broker will start running a background goroutine that will poll the SQS queue for new messages.
-func NewBroker(
-	ctx context.Context,
-	snsClient AWSSNSAPI,
-	sqsClient AWSSQSAPI,
-	sqsQueueURL string,
-	option ...Option,
-) pubsub.Broker {
+func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		ctx:               ctx,
 		deliverTimeout:    3 * time.Second,
 		maxMessages:       5,
 		visibilityTimeout: 30,
 		waitTimeSeconds:   15,
-		encoder: func(msg interface{}) ([]byte, error) {
-			return nil, fmt.Errorf("%w: no encoder was provided for sns broker", ErrBadConfiguration)
-		},
-		decoder: func(data []byte) (interface{}, error) {
-			return nil, fmt.Errorf("%w: no decoder was provided for sns broker", ErrBadConfiguration)
-		},
 	}
 
 	for _, o := range option {
 		o.apply(opts)
 	}
 
-	ctx, cancel := context.WithCancel(opts.ctx)
+	if opts.encoder == nil {
+		return nil, errors.New("no encoder was provided")
+	}
 
+	if opts.decoder == nil {
+		return nil, errors.New("no decoder was provided")
+	}
+
+	if opts.snsClient == nil {
+		return nil, errors.New("no SNS client was provided")
+	}
+
+	if opts.sqsClient == nil {
+		return nil, errors.New("no SQS client was provided")
+	}
+
+	if opts.sqsQueueURL == "" {
+		return nil, errors.New("no SQS queue URL was provided")
+	}
+
+	ctx, cancel := context.WithCancel(opts.ctx)
 	b := &broker{
-		snsClient:    snsClient,
-		sqsClient:    sqsClient,
-		sqsQueueURL:  sqsQueueURL,
 		runnerCancel: cancel,
 		runnerCtx:    ctx,
 		options:      opts,
@@ -79,7 +76,7 @@ func NewBroker(
 		go b.run()
 	}()
 
-	return b
+	return b, nil
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
@@ -88,7 +85,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 		return err
 	}
 
-	_, err = b.snsClient.Publish(ctx, &sns.PublishInput{
+	_, err = b.options.snsClient.Publish(ctx, &sns.PublishInput{
 		Message:  aws.String(string(message)),
 		TopicArn: aws.String(string(topic)),
 	})
@@ -101,8 +98,8 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 }
 
 func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
-	sub, err := b.snsClient.Subscribe(ctx, &sns.SubscribeInput{
-		Endpoint: aws.String(b.sqsQueueURL),
+	sub, err := b.options.snsClient.Subscribe(ctx, &sns.SubscribeInput{
+		Endpoint: aws.String(b.options.sqsQueueURL),
 		Protocol: aws.String("sqs"),
 		TopicArn: aws.String(string(topic)),
 	})
@@ -141,7 +138,7 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 		return nil
 	}
 
-	_, err := b.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
+	_, err := b.options.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
 		SubscriptionArn: aws.String(sub.arn),
 	})
 
@@ -158,7 +155,7 @@ func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	var next string
 
 	out := make([]pubsub.Topic, 0)
-	res, err := b.snsClient.ListTopics(ctx, &sns.ListTopicsInput{})
+	res, err := b.options.snsClient.ListTopics(ctx, &sns.ListTopicsInput{})
 
 	if err != nil {
 		return out, err
@@ -173,7 +170,7 @@ func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
 	}
 
 	for next != "" {
-		res, err = b.snsClient.ListTopics(ctx, &sns.ListTopicsInput{
+		res, err = b.options.snsClient.ListTopics(ctx, &sns.ListTopicsInput{
 			NextToken: aws.String(next),
 		})
 
@@ -201,7 +198,7 @@ func (b *broker) Shutdown(ctx context.Context) error {
 
 	for _, subs := range b.subs {
 		for _, sub := range subs {
-			_, err := b.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
+			_, err := b.options.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
 				SubscriptionArn: aws.String(sub.arn),
 			})
 
@@ -226,8 +223,8 @@ func (b *broker) run() {
 		default:
 		}
 
-		res, err := b.sqsClient.ReceiveMessage(b.runnerCtx, &sqs.ReceiveMessageInput{
-			QueueUrl:            aws.String(b.sqsQueueURL),
+		res, err := b.options.sqsClient.ReceiveMessage(b.runnerCtx, &sqs.ReceiveMessageInput{
+			QueueUrl:            aws.String(b.options.sqsQueueURL),
 			MaxNumberOfMessages: b.options.maxMessages,
 			VisibilityTimeout:   b.options.visibilityTimeout,
 			WaitTimeSeconds:     b.options.waitTimeSeconds,
@@ -315,11 +312,11 @@ func (b *broker) handleNotification(sub *subscription, noty sqsNotification) err
 	}
 
 	input := &sqs.DeleteMessageInput{
-		QueueUrl:      aws.String(b.sqsQueueURL),
+		QueueUrl:      aws.String(b.options.sqsQueueURL),
 		ReceiptHandle: aws.String(noty.ReceiptHandle),
 	}
 
-	if _, err = b.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
+	if _, err = b.options.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
 		// There was an error removing the message from the queue, so probably the message
 		// is still in the queue and will receive it again (although we will never know),
 		// so be prepared to process the message again without side effects.
@@ -356,10 +353,10 @@ func (b *broker) heartbeatMessage(ctx context.Context, receiptHandle string) {
 
 func (b *broker) changeMsgVisibilityTimeout(ctx context.Context, receiptHandle string, visibilityTimeout int32) (*sqs.ChangeMessageVisibilityOutput, error) {
 	input := &sqs.ChangeMessageVisibilityInput{
-		QueueUrl:          aws.String(b.sqsQueueURL),
+		QueueUrl:          aws.String(b.options.sqsQueueURL),
 		ReceiptHandle:     aws.String(receiptHandle),
 		VisibilityTimeout: visibilityTimeout,
 	}
 
-	return b.sqsClient.ChangeMessageVisibility(ctx, input)
+	return b.options.sqsClient.ChangeMessageVisibility(ctx, input)
 }

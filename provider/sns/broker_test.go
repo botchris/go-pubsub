@@ -29,6 +29,8 @@ func TestSingleBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
+		defer broker.Shutdown(ctx)
+
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
 		topicARN := *tRes.TopicArn
@@ -98,9 +100,13 @@ func TestMultiInstanceBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
+		defer broker1.Shutdown(ctx)
+
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
+
+		defer broker2.Shutdown(ctx)
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -154,9 +160,13 @@ func TestMultiHostBroker(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
+		defer broker1.Shutdown(ctx)
+
 		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b2")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
+
+		defer broker2.Shutdown(ctx)
 
 		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
 		require.NoError(t, err)
@@ -258,9 +268,15 @@ func prepareBroker(
 	queueURL := *qRes.QueueUrl
 	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
 	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-	broker := sns.NewBroker(ctx, snsClient, sqsClient, queueURL, sns.WithEncoder(encoder), sns.WithDecoder(decoder), sns.WithWaitTimeSeconds(1))
 
-	return broker, nil
+	return sns.NewBroker(ctx,
+		sns.WithSNSClient(snsClient),
+		sns.WithSQSClient(sqsClient),
+		sns.WithSQSQueueURL(queueURL),
+		sns.WithEncoder(encoder),
+		sns.WithDecoder(decoder),
+		sns.WithWaitTimeSeconds(1),
+	)
 }
 
 func awsConfig(t *testing.T) aws.Config {
