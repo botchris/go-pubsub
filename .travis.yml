@@ -11,6 +11,7 @@ script:
   - docker-compose up -d
   - scripts/wait-sns.sh
   - scripts/wait-sqs.sh
+  - scripts/wait-kubemq.sh
   - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.39.0
   - go mod download
   - golangci-lint run -v ./...
