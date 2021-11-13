@@ -15,6 +15,7 @@ type options struct {
 	serverHost     string
 	serverPort     int
 	clientID       string
+	groupID        string
 	encoder        Encoder
 	decoder        Decoder
 	deliverTimeout time.Duration
@@ -58,6 +59,16 @@ func WithClientID(clientID string) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.clientID = clientID
+		},
+	}
+}
+
+// WithGroupID sets the group ID for receiving messages.
+// Subscriptions under the same groupID share the messages in a round-robin fashion.
+func WithGroupID(groupID string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.groupID = groupID
 		},
 	}
 }

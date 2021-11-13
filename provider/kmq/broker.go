@@ -84,8 +84,8 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
-		Group:    subscriber.ID(),
 		ClientId: b.options.clientID,
+		Group:    b.options.groupID,
 	}
 
 	b.mu.Lock()
