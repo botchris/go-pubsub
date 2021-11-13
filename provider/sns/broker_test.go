@@ -73,14 +73,75 @@ func TestSingleBroker(t *testing.T) {
 			}
 
 			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
-				require.Eventually(t, func() bool { return consumer1.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
-				require.Eventually(t, func() bool { return consumer2.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool {
+					return consumer1.received().hasExactlyOnce(sent...)
+				}, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool {
+					return consumer2.received().hasExactlyOnce(sent...)
+				}, 10*time.Second, time.Millisecond*100)
 			})
 		})
 	})
 }
 
-func TestMultiBroker(t *testing.T) {
+func TestMultiInstanceBroker(t *testing.T) {
+	// This test simulates multiple instances of the same applications share messages in a round-robin fashion.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a sns topic and two brokers attached to the same sqs queue with one subscriber each", func(t *testing.T) {
+		cfg := awsConfig(t)
+		snsCli := awssns.NewFromConfig(cfg)
+		sqsCli := awssqs.NewFromConfig(cfg)
+
+		broker1, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
+		require.NoError(t, err)
+		require.NotNil(t, broker1)
+
+		broker2, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
+		require.NoError(t, err)
+		require.NotNil(t, broker2)
+
+		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
+		require.NoError(t, err)
+		topicARN := *tRes.TopicArn
+		topic := pubsub.Topic(topicARN)
+
+		consumer1 := &consumer{}
+		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+
+		consumer2 := &consumer{}
+		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+
+		t.Run("WHEN publishing N messages to the topic using B1", func(t *testing.T) {
+			sent := []string{
+				"test-message-1",
+				"test-message-2",
+				"test-message-3",
+				"test-message-4",
+				"test-message-5",
+			}
+
+			for _, msg := range sent {
+				require.NoError(t, broker1.Publish(ctx, topic, msg))
+			}
+
+			t.Run("THEN eventually subscribers receives all the messages", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					r1 := consumer1.received()
+					r2 := consumer2.received()
+
+					return r1.merge(r2).hasExactlyOnce(sent...)
+				}, 10*time.Second, time.Millisecond*100)
+			})
+		})
+	})
+}
+
+func TestMultiHostBroker(t *testing.T) {
+	// This test simulates multiple applications reading from the same topic.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -122,35 +183,35 @@ func TestMultiBroker(t *testing.T) {
 			}
 
 			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
-				require.Eventually(t, func() bool { return consumer1.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
-				require.Eventually(t, func() bool { return consumer2.hasExactlyOnce(sent) }, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool {
+					return consumer1.received().hasExactlyOnce(sent...)
+				}, 10*time.Second, time.Millisecond*100)
+				require.Eventually(t, func() bool {
+					return consumer2.received().hasExactlyOnce(sent...)
+				}, 10*time.Second, time.Millisecond*100)
 			})
 		})
 	})
 }
 
 type consumer struct {
-	rcv []string
+	rcv queue
 	mu  sync.RWMutex
 }
 
-func (c *consumer) handle(_ context.Context, msg string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+type queue []string
 
-	c.rcv = append(c.rcv, msg)
+func (q queue) merge(q2 queue) queue {
+	x := append(q, q2...)
 
-	return nil
+	return x
 }
 
-func (c *consumer) hasExactlyOnce(expected []string) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
+func (q queue) hasExactlyOnce(expected ...string) bool {
 	seen := make(map[string]int)
 
 	for _, m1 := range expected {
-		for _, m2 := range c.rcv {
+		for _, m2 := range q {
 			if m1 == m2 {
 				seen[m1]++
 
@@ -162,6 +223,25 @@ func (c *consumer) hasExactlyOnce(expected []string) bool {
 	}
 
 	return len(seen) == len(expected)
+}
+
+func (c *consumer) handle(_ context.Context, msg string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.rcv = append(c.rcv, msg)
+
+	return nil
+}
+
+func (c *consumer) received() queue {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	out := make([]string, len(c.rcv))
+	copy(out, c.rcv)
+
+	return out
 }
 
 func prepareBroker(
