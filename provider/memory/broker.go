@@ -45,7 +45,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -54,7 +54,7 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -68,19 +68,22 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	return nil
 }
 
-func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
 	b.RLock()
 	defer b.RUnlock()
 
-	keys := make([]pubsub.Topic, 0, len(b.topics))
-	for k := range b.topics {
-		keys = append(keys, k)
+	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+
+	for tName, t := range b.topics {
+		for _, s := range t.subscribers {
+			out[tName] = append(out[tName], s)
+		}
 	}
 
-	return keys, nil
+	return out, nil
 }
 
-func (b *broker) Shutdown(ctx context.Context) error {
+func (b *broker) Shutdown(_ context.Context) error {
 	return nil
 }
 

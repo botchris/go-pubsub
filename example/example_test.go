@@ -24,7 +24,7 @@ func Test_EndToEnd(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo")
 		writer := bytes.NewBuffer([]byte{})
-		client := interceptor.New(
+		client := interceptor.NewBroker(
 			broker,
 			interceptor.WithPublishInterceptor(printer.PublishInterceptor(writer)),
 			interceptor.WithSubscribeInterceptor(printer.SubscribeInterceptor(writer)),
@@ -55,7 +55,7 @@ func Test_EndToEnd(t *testing.T) {
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo-2")
-		client := interceptor.New(broker)
+		client := interceptor.NewBroker(broker)
 		rx := &lockedCounter{}
 		s := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
 			rx.inc()

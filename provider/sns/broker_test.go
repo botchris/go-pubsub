@@ -39,14 +39,6 @@ func TestSingleBroker(t *testing.T) {
 			_ = broker.Shutdown(ctx)
 		}()
 
-		t.Run("WHEN asking for registered topics THEN one topic is informed", func(t *testing.T) {
-			topics, tErr := broker.Topics(ctx)
-
-			require.NoError(t, tErr)
-			require.Len(t, topics, 1)
-			require.EqualValues(t, topic, topics[0])
-		})
-
 		consumer1 := &consumer{}
 		consumer2 := &consumer{}
 
@@ -56,6 +48,12 @@ func TestSingleBroker(t *testing.T) {
 
 			sub2 := pubsub.NewSubscriber(consumer2.handle)
 			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
+
+			subscriptions, err := broker.Subscriptions(ctx)
+			require.NoError(t, err)
+			require.Contains(t, subscriptions, topic)
+			require.Contains(t, subscriptions[topic], sub1)
+			require.Contains(t, subscriptions[topic], sub2)
 
 			// wait async subscription to take place
 			time.Sleep(time.Second)

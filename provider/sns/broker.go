@@ -170,12 +170,13 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	return nil
 }
 
-func (b *broker) Topics(ctx context.Context) ([]pubsub.Topic, error) {
-	out := make([]pubsub.Topic, 0)
-	topics := b.topics.all()
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
+	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
 
-	for name := range topics {
-		out = append(out, name)
+	for topic, subs := range b.subs {
+		for _, sub := range subs {
+			out[topic] = append(out[topic], sub.handler)
+		}
 	}
 
 	return out, nil

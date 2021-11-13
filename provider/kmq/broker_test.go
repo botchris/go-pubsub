@@ -31,6 +31,12 @@ func TestSingleBroker(t *testing.T) {
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
+		subscriptions, err := broker.Subscriptions(ctx)
+		require.NoError(t, err)
+		require.Len(t, subscriptions, 1)
+		require.Contains(t, subscriptions, topic)
+		require.Len(t, subscriptions[topic], 2)
+
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 

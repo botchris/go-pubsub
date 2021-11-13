@@ -41,18 +41,6 @@ func newTopicsCache(client AWSSNSAPI) *topicsCache {
 	}
 }
 
-func (t *topicsCache) all() map[pubsub.Topic]string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-
-	out := make(map[pubsub.Topic]string)
-	for k, v := range t.cache {
-		out[k] = v
-	}
-
-	return out
-}
-
 // arnOf returns the ARN of the topic for the given name.
 func (t *topicsCache) arnOf(topic pubsub.Topic) (string, error) {
 	t.mu.RLock()
