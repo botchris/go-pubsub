@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awssns "github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sns/types"
 	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/provider/sns"
@@ -25,6 +26,11 @@ func TestSingleBroker(t *testing.T) {
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
 
+		topic := pubsub.Topic("test-topic")
+		topicARN, err := prepareTopic(ctx, snsCli, "test-topic")
+		require.NoError(t, err)
+		require.NotEmpty(t, topicARN)
+
 		broker, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue")
 		require.NoError(t, err)
 		require.NotNil(t, broker)
@@ -33,17 +39,12 @@ func TestSingleBroker(t *testing.T) {
 			_ = broker.Shutdown(ctx)
 		}()
 
-		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
-		require.NoError(t, err)
-		topicARN := *tRes.TopicArn
-		topic := pubsub.Topic(topicARN)
-
 		t.Run("WHEN asking for registered topics THEN one topic is informed", func(t *testing.T) {
 			topics, tErr := broker.Topics(ctx)
 
 			require.NoError(t, tErr)
 			require.Len(t, topics, 1)
-			require.EqualValues(t, topicARN, topics[0].String())
+			require.EqualValues(t, topic, topics[0])
 		})
 
 		consumer1 := &consumer{}
@@ -102,6 +103,11 @@ func TestMultiInstanceBroker(t *testing.T) {
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
 
+		topic := pubsub.Topic("test-topic")
+		topicARN, err := prepareTopic(ctx, snsCli, "test-topic")
+		require.NoError(t, err)
+		require.NotEmpty(t, topicARN)
+
 		broker1, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
@@ -117,11 +123,6 @@ func TestMultiInstanceBroker(t *testing.T) {
 		defer func() {
 			_ = broker2.Shutdown(ctx)
 		}()
-
-		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
-		require.NoError(t, err)
-		topicARN := *tRes.TopicArn
-		topic := pubsub.Topic(topicARN)
 
 		consumer1 := &consumer{}
 		sub1 := pubsub.NewSubscriber(consumer1.handle)
@@ -169,6 +170,11 @@ func TestMultiHostBroker(t *testing.T) {
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
 
+		topic := pubsub.Topic("test-topic")
+		topicARN, err := prepareTopic(ctx, snsCli, "test-topic")
+		require.NoError(t, err)
+		require.NotEmpty(t, topicARN)
+
 		broker1, err := prepareBroker(ctx, sqsCli, snsCli, "test-queue-b1")
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
@@ -184,11 +190,6 @@ func TestMultiHostBroker(t *testing.T) {
 		defer func() {
 			_ = broker2.Shutdown(ctx)
 		}()
-
-		tRes, err := snsCli.CreateTopic(ctx, &awssns.CreateTopicInput{Name: aws.String("test-topic")})
-		require.NoError(t, err)
-		topicARN := *tRes.TopicArn
-		topic := pubsub.Topic(topicARN)
 
 		consumer1 := &consumer{}
 		sub1 := pubsub.NewSubscriber(consumer1.handle)
@@ -298,6 +299,69 @@ func prepareBroker(
 		sns.WithDecoder(decoder),
 		sns.WithWaitTimeSeconds(1),
 	)
+}
+
+func prepareTopic(ctx context.Context, cli *awssns.Client, topic pubsub.Topic) (string, error) {
+	if err := flushTopics(ctx, cli); err != nil {
+		return "", err
+	}
+
+	tRes, err := cli.CreateTopic(ctx, &awssns.CreateTopicInput{
+		Name: aws.String(topic.String()),
+		Tags: []types.Tag{
+			{
+				Key:   aws.String("topic-name"),
+				Value: aws.String(topic.String()),
+			},
+		},
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return *tRes.TopicArn, nil
+}
+
+func flushTopics(ctx context.Context, cli *awssns.Client) error {
+	var next string
+
+	res, err := cli.ListTopics(ctx, &awssns.ListTopicsInput{})
+	if err != nil {
+		return err
+	}
+
+	if res.NextToken != nil {
+		next = *res.NextToken
+	}
+
+	for i := range res.Topics {
+		_, _ = cli.DeleteTopic(ctx, &awssns.DeleteTopicInput{
+			TopicArn: res.Topics[i].TopicArn,
+		})
+	}
+
+	for next != "" {
+		res, err = cli.ListTopics(ctx, &awssns.ListTopicsInput{
+			NextToken: aws.String(next),
+		})
+
+		if err != nil {
+			return err
+		}
+
+		if res.NextToken != nil {
+			next = *res.NextToken
+		}
+
+		for i := range res.Topics {
+			_, _ = cli.DeleteTopic(ctx, &awssns.DeleteTopicInput{
+				TopicArn: res.Topics[i].TopicArn,
+			})
+		}
+	}
+
+	return nil
 }
 
 func awsConfig(t *testing.T) aws.Config {

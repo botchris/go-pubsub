@@ -6,7 +6,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/botchris/go-pubsub"
 )
 
 // AWSSNSAPI captures the subset of the AWS SNS API that we need.
@@ -15,6 +14,7 @@ type AWSSNSAPI interface {
 	Subscribe(ctx context.Context, params *sns.SubscribeInput, optFns ...func(*sns.Options)) (*sns.SubscribeOutput, error)
 	Unsubscribe(ctx context.Context, params *sns.UnsubscribeInput, optFns ...func(*sns.Options)) (*sns.UnsubscribeOutput, error)
 	ListTopics(ctx context.Context, params *sns.ListTopicsInput, optFns ...func(*sns.Options)) (*sns.ListTopicsOutput, error)
+	ListTagsForResource(ctx context.Context, params *sns.ListTagsForResourceInput, optFns ...func(*sns.Options)) (*sns.ListTagsForResourceOutput, error)
 }
 
 // AWSSQSAPI captures the subset of the AWS SQS API that we need.
@@ -26,13 +26,13 @@ type AWSSQSAPI interface {
 
 // sqsNotification represents a SQS message that we received from SNS.
 type sqsNotification struct {
-	Type             string       `json:"Type,omitempty"`
-	ReceiptHandle    string       `json:"ReceiptHandle,omitempty"`
-	MessageID        string       `json:"MessageId,omitempty"`
-	TopicARN         pubsub.Topic `json:"TopicArn,omitempty"`
-	Message          string       `json:"Message,omitempty"`
-	Timestamp        time.Time    `json:"Timestamp,omitempty"`
-	SignatureVersion string       `json:"SignatureVersion,omitempty"`
-	Signature        string       `json:"Signature,omitempty"`
-	SigningCertURL   string       `json:"SigningCertURL,omitempty"`
+	Type             string    `json:"Type,omitempty"`
+	ReceiptHandle    string    `json:"ReceiptHandle,omitempty"`
+	MessageID        string    `json:"MessageId,omitempty"`
+	TopicARN         string    `json:"TopicArn,omitempty"`
+	Message          string    `json:"Message,omitempty"`
+	Timestamp        time.Time `json:"Timestamp,omitempty"`
+	SignatureVersion string    `json:"SignatureVersion,omitempty"`
+	Signature        string    `json:"Signature,omitempty"`
+	SigningCertURL   string    `json:"SigningCertURL,omitempty"`
 }

@@ -1,7 +1,6 @@
 package sns
 
 import (
-	"context"
 	"time"
 )
 
@@ -11,16 +10,16 @@ type Option interface {
 }
 
 type options struct {
-	ctx               context.Context
-	snsClient         AWSSNSAPI
-	sqsClient         AWSSQSAPI
-	sqsQueueURL       string
-	encoder           Encoder
-	decoder           Decoder
-	deliverTimeout    time.Duration
-	maxMessages       int32
-	visibilityTimeout int32
-	waitTimeSeconds   int32
+	snsClient            AWSSNSAPI
+	sqsClient            AWSSQSAPI
+	sqsQueueURL          string
+	encoder              Encoder
+	decoder              Decoder
+	deliverTimeout       time.Duration
+	topicsReloadInterval time.Duration
+	maxMessages          int32
+	visibilityTimeout    int32
+	waitTimeSeconds      int32
 }
 
 type fnOption struct {
@@ -29,15 +28,6 @@ type fnOption struct {
 
 func (f fnOption) apply(o *options) {
 	f.f(o)
-}
-
-// WithContext sets the context to be used by broker's runner
-func WithContext(ctx context.Context) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.ctx = ctx
-		},
-	}
 }
 
 // WithSNSClient sets the SNS client to be used by broker.
@@ -92,6 +82,17 @@ func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.deliverTimeout = t
+		},
+	}
+}
+
+// WithTopicsReloadInterval determines how often in-memory topics cache should be reloaded by connecting to AWS.
+// A lower value means that the broker will be less responsive as it will have to connect to AWS more often.
+// Default: 60s.
+func WithTopicsReloadInterval(t time.Duration) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.topicsReloadInterval = t
 		},
 	}
 }
