@@ -110,7 +110,7 @@ See the `printer` middleware for a more detailed example.
 
 - [ ] Kafka provider
 - [ ] Google's Pub/Sub
-- [ ] gRPC support as a middleware encoder/decoder
+- [ ] Add protobuf support as a middleware encoder/decoder
 - [ ] Recovery middleware for dealing with panics
 
 ## Example
