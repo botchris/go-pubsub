@@ -45,8 +45,8 @@ type Subscriber struct {
 // - func (ctx context.Context, custom MyCustomInterface) error
 //
 // Subscribers should return an error if they're unable to properly handle a given message.
-// In the other hand, is highly recommended to handle each message asynchronously in a separated goroutine in order
-// to increase Broker's throughput.
+// In the other hand, in order to increase Broker's throughput, is highly recommended designing each Broker in such a
+// way that handling of each message is asynchronously, in a separated goroutine.
 func NewSubscriber(handlerFunc interface{}) *Subscriber {
 	if err := validateHandlerFn(handlerFunc); err != nil {
 		panic(err)

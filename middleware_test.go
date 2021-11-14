@@ -1,4 +1,4 @@
-package interceptor_test
+package pubsub_test
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
-	"github.com/botchris/go-pubsub/interceptor"
 	"github.com/botchris/go-pubsub/provider/nop"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,17 +15,17 @@ import (
 )
 
 func Test_NewInterceptor(t *testing.T) {
-	t.Run("GIVEN an interceptor instance WHEN creating a broker with no options THEN a new broker is created", func(t *testing.T) {
+	t.Run("GIVEN an interceptor instance WHEN creating a middleware with no options THEN a new middleware is created", func(t *testing.T) {
 		broker := nop.NewBroker()
-		instance := interceptor.NewBroker(broker)
+		instance := pubsub.NewMiddlewareBroker(broker)
 
 		require.NotNil(t, instance)
 	})
 
-	t.Run("GIVEN an interceptor instance WHEN creating a broker with one option THEN a new broker is created", func(t *testing.T) {
+	t.Run("GIVEN an interceptor instance WHEN creating a middleware with one option THEN a new middleware is created", func(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newPublishInterceptorSpy()
-		instance := interceptor.NewBroker(broker, interceptor.WithPublishInterceptor(spy.fn))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithPublishInterceptor(spy.fn))
 
 		require.NotNil(t, instance)
 	})
@@ -38,7 +37,7 @@ func Test_Publish(t *testing.T) {
 
 	t.Run("GIVEN an interceptor instance with zero interceptors configured WHEN publishing a message THEN no error is raised", func(t *testing.T) {
 		broker := nop.NewBroker()
-		instance := interceptor.NewBroker(broker)
+		instance := pubsub.NewMiddlewareBroker(broker)
 
 		require.NotNil(t, instance)
 		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
@@ -47,7 +46,7 @@ func Test_Publish(t *testing.T) {
 	t.Run("GIVEN an interceptor instance with one publish interceptor WHEN publishing a message THEN message is intercepted", func(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newPublishInterceptorSpy()
-		instance := interceptor.NewBroker(broker, interceptor.WithPublishInterceptor(spy.fn))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithPublishInterceptor(spy.fn))
 
 		require.NotNil(t, instance)
 		require.NoError(t, instance.Publish(ctx, "dummyTopic", &CustomMessage{}))
@@ -61,17 +60,17 @@ func Test_Publish(t *testing.T) {
 		interceptor2 := newPublishInterceptorSpy()
 		logger := &lockedLogs{}
 
-		wrapper1 := func(ctx context.Context, next interceptor.PublishHandler) interceptor.PublishHandler {
+		wrapper1 := func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
 			logger.write("interceptor1")
 			return interceptor1.fn(ctx, next)
 		}
 
-		wrapper2 := func(ctx context.Context, next interceptor.PublishHandler) interceptor.PublishHandler {
+		wrapper2 := func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
 			logger.write("interceptor2")
 			return interceptor2.fn(ctx, next)
 		}
 
-		instance := interceptor.NewBroker(broker, interceptor.WithChainPublishInterceptors(wrapper1, wrapper2))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithChainPublishInterceptors(wrapper1, wrapper2))
 
 		require.NotNil(t, instance)
 
@@ -96,7 +95,7 @@ func Test_Subscribe(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newSubscribeInterceptorSpy()
 		tid := pubsub.Topic("yolo")
-		instance := interceptor.NewBroker(broker, interceptor.WithSubscribeInterceptor(spy.fn))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithSubscribeInterceptor(spy.fn))
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			return nil
 		})
@@ -116,20 +115,20 @@ func Test_Subscribe(t *testing.T) {
 		interceptor2 := newSubscribeInterceptorSpy()
 		logger := &lockedLogs{}
 
-		wrapper1 := func(ctx context.Context, next interceptor.SubscribeMessageHandler) interceptor.SubscribeMessageHandler {
+		wrapper1 := func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
 			logger.write("interceptor1")
 
 			return interceptor1.fn(ctx, next)
 		}
 
-		wrapper2 := func(ctx context.Context, next interceptor.SubscribeMessageHandler) interceptor.SubscribeMessageHandler {
+		wrapper2 := func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
 			logger.write("interceptor2")
 
 			return interceptor2.fn(ctx, next)
 		}
 
 		tid := pubsub.Topic("yolo")
-		instance := interceptor.NewBroker(broker, interceptor.WithChainSubscribeInterceptors(wrapper1, wrapper2))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithChainSubscribeInterceptors(wrapper1, wrapper2))
 		srx := &lockedCounter{}
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			srx.inc()
@@ -157,7 +156,7 @@ func Test_Subscribe(t *testing.T) {
 
 type publishInterceptorSpy struct {
 	m  []interface{}
-	fn interceptor.PublishInterceptor
+	fn pubsub.PublishInterceptor
 }
 
 func newPublishInterceptorSpy() *publishInterceptorSpy {
@@ -166,7 +165,7 @@ func newPublishInterceptorSpy() *publishInterceptorSpy {
 		s.m = []interface{}{}
 	}
 
-	s.fn = func(ctx context.Context, next interceptor.PublishHandler) interceptor.PublishHandler {
+	s.fn = func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
 		return func(ctx context.Context, m interface{}, topic pubsub.Topic) error {
 			s.m = append(s.m, m)
 
@@ -179,7 +178,7 @@ func newPublishInterceptorSpy() *publishInterceptorSpy {
 
 type subscribeInterceptorSpy struct {
 	m  []interface{}
-	fn interceptor.SubscriberInterceptor
+	fn pubsub.SubscriberInterceptor
 }
 
 func newSubscribeInterceptorSpy() *subscribeInterceptorSpy {
@@ -188,7 +187,7 @@ func newSubscribeInterceptorSpy() *subscribeInterceptorSpy {
 		s.m = []interface{}{}
 	}
 
-	s.fn = func(ctx context.Context, next interceptor.SubscribeMessageHandler) interceptor.SubscribeMessageHandler {
+	s.fn = func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
 		return func(ctx context.Context, sc *pubsub.Subscriber, m interface{}) error {
 			s.m = append(s.m, m)
 
