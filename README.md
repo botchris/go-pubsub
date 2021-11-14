@@ -106,7 +106,14 @@ type SubscribeInterceptor func(ctx context.Context, next SubscribeMessageHandler
 
 See the `printer` middleware for a more detailed example.
 
-## Example
+# TODO
+
+- [ ] Kafka provider
+- [ ] Google's Pub/Sub
+- [ ] gRPC support as a middleware encoder/decoder
+- [ ] Recovery middleware for dealing with panics
+
+# Example
 
 ```go
 package main
