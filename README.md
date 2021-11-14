@@ -1,11 +1,11 @@
 # Overview
 
-The `pubsub` package provides a simple helper library for doing 
-publish-subscribe asynchronous tasks in Golang, usually in a web or 
+The `pubsub` package provides a simple helper library for doing
+publish-subscribe asynchronous tasks in Golang, usually in a web or
 microservice.
 
 The  `pubsub` package allows you to write publishers and subscribers, fully
-statically typed, and swap out Broker implementations (e.g. Memory, AWS SQS, 
+statically typed, and swap out Broker implementations (e.g. Memory, AWS SQS,
 etc.) as required.
 
 This package imposes no restrictions on how messages should be model, the idea
@@ -19,20 +19,20 @@ KubeMQ or AWS implementation for an example of how to encode/decode messages.
 # What is a PubSub System?
 
 A PubSub system is a messaging system that has, as its name implies, two
-components: Publisher of messages and subscriber to messages. In contrast to 
+components: Publisher of messages and subscriber to messages. In contrast to
 synchronous communication, the publisher doesn't have to wait for a message to
-be received, as well as the receiver doesn't have to be online to retrieve 
-messages sent earlier. As such, a PubSub system acts like a buffer for 
+be received, as well as the receiver doesn't have to be online to retrieve
+messages sent earlier. As such, a PubSub system acts like a buffer for
 asynchronous messaging.
 
 # Features
 
-- Multi-topic support, the same subscriber may listen for messages on 
+- Multi-topic support, the same subscriber may listen for messages on
   multiple topics at the same time.
-- [Hybrid message filtering][hybrid-filtering], subscriber are free to 
-  decide whether they want to receive messages for a concrete type or not 
-  (content-based), or just receive everything that is pushed to a given 
-  topic/s (topic-based). 
+- [Hybrid message filtering][hybrid-filtering], subscriber are free to
+  decide whether they want to receive messages for a concrete type or not
+  (content-based), or just receive everything that is pushed to a given
+  topic/s (topic-based).
 - Pluggable providers. Included providers are:
   - In-memory
   - AWS SNS + SQS
@@ -41,31 +41,31 @@ asynchronous messaging.
 # Providers
 
 Providers are concrete implementations of the Broker interface. Examples of
-providers could be messaging services such as Google's PubSub, Amazon's SNS 
+providers could be messaging services such as Google's PubSub, Amazon's SNS
 or Nats.io. Broker interface acts as a generalization for suh services.
 
-The `pubsub` package comes with a built-in `memory` provider: a simple 
-Broker which allows communicating local process of your system by 
+The `pubsub` package comes with a built-in `memory` provider: a simple
+Broker which allows communicating local process of your system by
 interchanging messages, which can be used as a simple "Message Bus" replacement.
 
 # Middleware
 
 The `pubsub` package provides a simple API to implement and install
-interceptor middlewares. Middleware intercepts each message being published or 
+interceptor middlewares. Middleware intercepts each message being published or
 being delivered to Subscribers. Users can use middleware to do logging, metrics
-collection, and many other functionalities that can be shared across PubSub 
+collection, and many other functionalities that can be shared across PubSub
 Providers.
 
-To use middleware capabilities you must simply instantiate a new 
-Middleware Broker as follows:
+To use middleware capabilities you must simply instantiate a new Middleware
+Broker as follows:
 
 ```go
 provider := pubsub.NewMiddlewareBroker(myProvider, ...opts)
 ```
 
 This "middleware" acts as a wrapper for the given provider by adding
-interception capabilities. Moreover, the middleware itself can be used 
-interchangeably as a Broker as it implements the Broker interface. 
+interception capabilities. Moreover, the middleware itself can be used
+interchangeably as a Broker as it implements the Broker interface.
 
 ## Publishing Interceptors
 
@@ -80,9 +80,9 @@ provider := pubsub.NewMiddlewareBroker(myProvider,
 ## Subscribing Interceptors
 
 Provides a hook to intercept each message before it gets delivered to
-subscribers (handler functions). In this case, interception occurs for each 
+subscribers (handler functions). In this case, interception occurs for each
 subscriber receiving a message. For instance, if two subscribers `S1` and `S2`
-receives the same message `M`, then interception logic will be triggered 
+receives the same message `M`, then interception logic will be triggered
 twice for the same message `M`.
 
 ```go
@@ -98,7 +98,7 @@ that follows the signatures:
 
 ```go
 type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHandler
-``` 
+```
 
 ```go
 type SubscribeInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
@@ -130,7 +130,7 @@ func main() {
   ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
   defer cancel()
 
-  // Declare subscribers.
+  // Declare subscribers. This usually takes place within a `init()` function
   s1 := pubsub.NewSubscriber(func(ctx context.Context, m MyMessage) error {
     fmt.Printf("[s1] -> %+v\n", m)
 
