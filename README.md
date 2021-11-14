@@ -1,4 +1,4 @@
-# Overview
+# Go PubSub
 
 The `pubsub` package provides a simple helper library for doing
 publish-subscribe asynchronous tasks in Golang, usually in a web or
@@ -16,7 +16,7 @@ KubeMQ or AWS implementation for an example of how to encode/decode messages.
 
 ![broker overview][broker-overview]
 
-# What is a PubSub System?
+## What is a PubSub System
 
 A PubSub system is a messaging system that has, as its name implies, two
 components: Publisher of messages and subscriber to messages. In contrast to
@@ -25,7 +25,7 @@ be received, as well as the receiver doesn't have to be online to retrieve
 messages sent earlier. As such, a PubSub system acts like a buffer for
 asynchronous messaging.
 
-# Features
+## Features
 
 - Multi-topic support, the same subscriber may listen for messages on
   multiple topics at the same time.
@@ -38,7 +38,7 @@ asynchronous messaging.
   - AWS SNS + SQS
   - KubeMQ
 
-# Providers
+## Providers
 
 Providers are concrete implementations of the Broker interface. Examples of
 providers could be messaging services such as Google's PubSub, Amazon's SNS
@@ -48,7 +48,7 @@ The `pubsub` package comes with a built-in `memory` provider: a simple
 Broker which allows communicating local process of your system by
 interchanging messages, which can be used as a simple "Message Bus" replacement.
 
-# Middleware
+## Middleware
 
 The `pubsub` package provides a simple API to implement and install
 interceptor middlewares. Middleware intercepts each message being published or
@@ -67,7 +67,7 @@ This "middleware" acts as a wrapper for the given provider by adding
 interception capabilities. Moreover, the middleware itself can be used
 interchangeably as a Broker as it implements the Broker interface.
 
-## Publishing Interceptors
+### Publishing Interceptors
 
 Allows to intercept each message before it's handled by underlying Provider.
 
@@ -77,7 +77,7 @@ provider := pubsub.NewMiddlewareBroker(myProvider,
 )
 ```
 
-## Subscribing Interceptors
+### Subscribing Interceptors
 
 Provides a hook to intercept each message before it gets delivered to
 subscribers (handler functions). In this case, interception occurs for each
@@ -91,7 +91,7 @@ provider := pubsub.NewMiddlewareBroker(myProvider,
 )
 ```
 
-## Creating Interceptors
+### Creating Interceptors
 
 You can create your own publishing/subscribing interceptor by defining functions
 that follows the signatures:
@@ -106,14 +106,14 @@ type SubscribeInterceptor func(ctx context.Context, next SubscribeMessageHandler
 
 See the `printer` middleware for a more detailed example.
 
-# TODO
+## TODO
 
 - [ ] Kafka provider
 - [ ] Google's Pub/Sub
 - [ ] gRPC support as a middleware encoder/decoder
 - [ ] Recovery middleware for dealing with panics
 
-# Example
+## Example
 
 ```go
 package main

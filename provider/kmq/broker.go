@@ -215,9 +215,5 @@ func (b *broker) handleRcv(msg *kubemq.Event, sub *pubsub.Subscriber) error {
 	ctx, cancel := context.WithTimeout(b.ctx, b.options.deliverTimeout)
 	defer cancel()
 
-	if dErr := sub.Deliver(ctx, message); dErr != nil {
-		return dErr
-	}
-
-	return nil
+	return sub.Deliver(ctx, message)
 }
