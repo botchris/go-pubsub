@@ -28,6 +28,7 @@ type subscription struct {
 }
 
 // NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
+// This broker will start consuming right on its creation and as long as the given context keeps alive.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		serverPort:       50000,
@@ -214,9 +215,5 @@ func (b *broker) handleRcv(msg *kubemq.Event, sub *pubsub.Subscriber) error {
 	ctx, cancel := context.WithTimeout(b.ctx, b.options.deliverTimeout)
 	defer cancel()
 
-	if dErr := sub.Deliver(ctx, message); dErr != nil {
-		return dErr
-	}
-
-	return nil
+	return sub.Deliver(ctx, message)
 }

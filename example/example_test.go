@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
-	"github.com/botchris/go-pubsub/interceptor"
-	"github.com/botchris/go-pubsub/interceptor/printer"
+	"github.com/botchris/go-pubsub/middleware/printer"
 	"github.com/botchris/go-pubsub/provider/memory"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -24,10 +23,10 @@ func Test_EndToEnd(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo")
 		writer := bytes.NewBuffer([]byte{})
-		client := interceptor.NewBroker(
+		client := pubsub.NewMiddlewareBroker(
 			broker,
-			interceptor.WithPublishInterceptor(printer.PublishInterceptor(writer)),
-			interceptor.WithSubscribeInterceptor(printer.SubscribeInterceptor(writer)),
+			pubsub.WithPublishInterceptor(printer.PublishInterceptor(writer)),
+			pubsub.WithSubscribeInterceptor(printer.SubscribeInterceptor(writer)),
 		)
 		rx := &lockedCounter{}
 		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
@@ -55,7 +54,7 @@ func Test_EndToEnd(t *testing.T) {
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo-2")
-		client := interceptor.NewBroker(broker)
+		client := pubsub.NewMiddlewareBroker(broker)
 		rx := &lockedCounter{}
 		s := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
 			rx.inc()
