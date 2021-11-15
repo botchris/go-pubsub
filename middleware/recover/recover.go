@@ -29,7 +29,7 @@ func PublishInterceptor(fn RecoveryHandlerFunc) pubsub.PublishInterceptor {
 
 // SubscriberInterceptor adds panic recovery capabilities to subscribers.
 func SubscriberInterceptor(fn RecoveryHandlerFunc) pubsub.SubscriberInterceptor {
-	return func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
+	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
 		return func(ctx context.Context, s *pubsub.Subscriber, t pubsub.Topic, m interface{}) (err error) {
 			defer func(ctx context.Context) {
 				if r := recover(); r != nil {

@@ -9,18 +9,18 @@ import (
 type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHandler
 
 // PublishHandler wraps a call to publish for interception.
-type PublishHandler func(ctx context.Context, topic Topic, m interface{}) error
+type PublishHandler func(ctx context.Context, topic Topic, msg interface{}) error
 
 // SubscriberInterceptor provides a hook to intercept each message before it gets delivered to subscribers.
 //
 // Please note that interception occurs for each delivery operation.
 // For instance, if two subscribers `S1` and `S2` receives the same message `M`, then interception logic will be
 // triggered twice for the same message `M`.
-type SubscriberInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
+type SubscriberInterceptor func(ctx context.Context, next SubscriberMessageHandler) SubscriberMessageHandler
 
-// SubscribeMessageHandler defines the handler invoked by SubscriberInterceptor before a message is delivered to a
+// SubscriberMessageHandler defines the handler invoked by SubscriberInterceptor before a message is delivered to a
 // particular subscriber.
-type SubscribeMessageHandler func(ctx context.Context, s *Subscriber, topic Topic, m interface{}) error
+type SubscriberMessageHandler func(ctx context.Context, s *Subscriber, topic Topic, msg interface{}) error
 
 // broker acts as a wrapper of another broker with interception capabilities.
 type middleware struct {

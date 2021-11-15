@@ -31,7 +31,7 @@ func PublishInterceptor(writer io.Writer) pubsub.PublishInterceptor {
 // SubscriberInterceptor intercepts each message that is delivered to a subscribers and prints out its content on
 // the given writer in JSON format
 func SubscriberInterceptor(writer io.Writer) pubsub.SubscriberInterceptor {
-	return func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
+	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
 		return func(ctx context.Context, s *pubsub.Subscriber, t pubsub.Topic, m interface{}) error {
 			j, err := json.Marshal(m)
 			if err != nil {

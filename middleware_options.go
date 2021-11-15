@@ -123,7 +123,7 @@ func chainSubscriberInterceptors(c *middleware) {
 	} else if len(interceptors) == 1 {
 		chainedInt = interceptors[0]
 	} else {
-		chainedInt = func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler {
+		chainedInt = func(ctx context.Context, next SubscriberMessageHandler) SubscriberMessageHandler {
 			return func(ctx context.Context, s *Subscriber, t Topic, m interface{}) error {
 				return interceptors[0](ctx, getChainSubscribeHandler(interceptors, 0, next))(ctx, s, t, m)
 			}
@@ -134,7 +134,7 @@ func chainSubscriberInterceptors(c *middleware) {
 }
 
 // getChainPublishHandler recursively generate the chained PublishHandler
-func getChainSubscribeHandler(interceptors []SubscriberInterceptor, curr int, final SubscribeMessageHandler) SubscribeMessageHandler {
+func getChainSubscribeHandler(interceptors []SubscriberInterceptor, curr int, final SubscriberMessageHandler) SubscriberMessageHandler {
 	if curr == len(interceptors)-1 {
 		return final
 	}
