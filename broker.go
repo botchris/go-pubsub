@@ -12,20 +12,22 @@ func (t Topic) String() string {
 	return string(t)
 }
 
-// Broker pub-sub broker definition.
+// Broker defines the interface for a pub/sub broker.
 type Broker interface {
-	// Publish the given message onto the given topic
+	// Publish the given message on the given topic.
 	Publish(ctx context.Context, topic Topic, m interface{}) error
 
-	// Subscribe subscribes to the given topic
+	// Subscribe attaches the given Subscriber to the given topic.
+	// This method should noop in case of duplicated subscriptions.
 	Subscribe(ctx context.Context, topic Topic, subscriber *Subscriber) error
 
-	// Unsubscribe removes the given subscriber from the specified topic
+	// Unsubscribe removes the given Subscriber from the specified topic.
+	// This method should noop if the Subscriber is not attached to the topic.
 	Unsubscribe(ctx context.Context, topic Topic, subscriber *Subscriber) error
 
 	// Subscriptions retrieves a list of subscribers currently attached to this broker.
 	Subscriptions(ctx context.Context) (map[Topic][]*Subscriber, error)
 
-	// Shutdown shutdowns all subscribers gracefully
+	// Shutdown shutdowns all subscribers gracefully.
 	Shutdown(ctx context.Context) error
 }

@@ -1,17 +1,14 @@
 # Go PubSub
 
-The `pubsub` package provides a simple helper library for doing
-publish-subscribe asynchronous tasks in Golang, usually in a web or
-microservice.
-
-The  `pubsub` package allows you to write publishers and subscribers, fully
-statically typed, and swap out Broker implementations (e.g. Memory, AWS SQS,
+The `pubsub` package is a simple package for implementing publish-subscribe
+asynchronous tasks in Golang. It allows writing publishers and subscribers fully
+statically typed, and swap out Broker implementations (e.g. Memory, AWS SQS, 
 etc.) as required.
 
-This package imposes no restrictions on how messages should be model, the idea
-is to keep subscribers agnostic to transport concerns and be fully typed
+This package imposes no restrictions on how messages should be represented, the 
+idea is to keep subscribers agnostic to transport concerns and be fully typed
 using golang definitions. How messages are encoded/decoded in order to be
-transported over the network, is up to the provider implementation. See
+transported over the network is up to the provider implementation. See
 KubeMQ or AWS implementation for an example of how to encode/decode messages.
 
 ![broker overview][broker-overview]
@@ -33,10 +30,7 @@ asynchronous messaging.
   decide whether they want to receive messages for a concrete type or not
   (content-based), or just receive everything that is pushed to a given
   topic/s (topic-based).
-- Pluggable providers. Included providers are:
-  - In-memory
-  - AWS SNS + SQS
-  - KubeMQ
+- Pluggable providers. Just implement the `Broker` interface.
 
 ## Providers
 
@@ -44,15 +38,20 @@ Providers are concrete implementations of the Broker interface. Examples of
 providers could be messaging services such as Google's PubSub, Amazon's SNS
 or Nats.io. Broker interface acts as a generalization for suh services.
 
-The `pubsub` package comes with a built-in `memory` provider: a simple
-Broker which allows communicating local process of your system by
-interchanging messages, which can be used as a simple "Message Bus" replacement.
+The `pubsub` package comes with a set of built-in providers:
+
+- `memory`: a simple Broker which allows communicating local process of your 
+  system by interchanging messages, which can be used as a simple "Message 
+  Bus" replacement.
+- `nop`: s simple NOP broker implementation that can be used for testing.
+- `sns`: a Broker that uses AWS SNS and AWS SQS.
+- `kmq`: a KubeMQ implementation of the Broker interface.
 
 ## Middleware
 
-The `pubsub` package provides a simple API to implement and install
-interceptor middlewares. Middleware intercepts each message being published or
-being delivered to Subscribers. Users can use middleware to do logging, metrics
+The `pubsub` package provides a simple API for implementing and installing
+interceptors. A middleware intercepts each message being published or
+being delivered to subscribers. Users can use middleware to do logging, metrics
 collection, and many other functionalities that can be shared across PubSub
 Providers.
 
