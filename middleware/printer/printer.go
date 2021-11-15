@@ -12,7 +12,7 @@ import (
 // PublishInterceptor intercepts each message and prints its content on the given writer in JSON format
 func PublishInterceptor(writer io.Writer) pubsub.PublishInterceptor {
 	return func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
-		return func(ctx context.Context, m interface{}, topic pubsub.Topic) error {
+		return func(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 			j, err := json.Marshal(m)
 			if err != nil {
 				return err
@@ -23,16 +23,16 @@ func PublishInterceptor(writer io.Writer) pubsub.PublishInterceptor {
 				return err
 			}
 
-			return next(ctx, m, topic)
+			return next(ctx, topic, m)
 		}
 	}
 }
 
-// SubscribeInterceptor intercepts each message that is delivered to a subscribers and prints out its content on
+// SubscriberInterceptor intercepts each message that is delivered to a subscribers and prints out its content on
 // the given writer in JSON format
-func SubscribeInterceptor(writer io.Writer) pubsub.SubscriberInterceptor {
-	return func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
-		return func(ctx context.Context, s *pubsub.Subscriber, m interface{}) error {
+func SubscriberInterceptor(writer io.Writer) pubsub.SubscriberInterceptor {
+	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
+		return func(ctx context.Context, s *pubsub.Subscriber, t pubsub.Topic, m interface{}) error {
 			j, err := json.Marshal(m)
 			if err != nil {
 				return err
@@ -43,7 +43,7 @@ func SubscribeInterceptor(writer io.Writer) pubsub.SubscriberInterceptor {
 				return err
 			}
 
-			return next(ctx, s, m)
+			return next(ctx, s, t, m)
 		}
 	}
 }
