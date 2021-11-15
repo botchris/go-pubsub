@@ -166,10 +166,10 @@ func newPublishInterceptorSpy() *publishInterceptorSpy {
 	}
 
 	s.fn = func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
-		return func(ctx context.Context, m interface{}, topic pubsub.Topic) error {
+		return func(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 			s.m = append(s.m, m)
 
-			return next(ctx, m, topic)
+			return next(ctx, topic, m)
 		}
 	}
 
@@ -188,10 +188,10 @@ func newSubscribeInterceptorSpy() *subscribeInterceptorSpy {
 	}
 
 	s.fn = func(ctx context.Context, next pubsub.SubscribeMessageHandler) pubsub.SubscribeMessageHandler {
-		return func(ctx context.Context, sc *pubsub.Subscriber, m interface{}) error {
+		return func(ctx context.Context, sc *pubsub.Subscriber, t pubsub.Topic, m interface{}) error {
 			s.m = append(s.m, m)
 
-			return next(ctx, sc, m)
+			return next(ctx, sc, t, m)
 		}
 	}
 
