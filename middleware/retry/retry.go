@@ -10,8 +10,8 @@ import (
 
 // PublishInterceptor adds panic recovery capabilities to publishers.
 func PublishInterceptor(strategy Strategy) pubsub.PublishInterceptor {
-	return func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
-		return func(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
+	return func(_ context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
+		return func(_ context.Context, topic pubsub.Topic, m interface{}) (err error) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
@@ -56,8 +56,8 @@ func PublishInterceptor(strategy Strategy) pubsub.PublishInterceptor {
 
 // SubscriberInterceptor adds panic recovery capabilities to subscribers.
 func SubscriberInterceptor(strategy Strategy) pubsub.SubscriberInterceptor {
-	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
-		return func(ctx context.Context, s *pubsub.Subscriber, topic pubsub.Topic, m interface{}) (err error) {
+	return func(_ context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
+		return func(_ context.Context, s *pubsub.Subscriber, topic pubsub.Topic, m interface{}) (err error) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
