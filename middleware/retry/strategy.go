@@ -1,3 +1,5 @@
+// Package retry provides retry strategies for retry middleware.
+// Credits: https://github.com/docker/go-events
 package retry
 
 import (

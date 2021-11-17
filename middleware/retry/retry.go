@@ -27,7 +27,7 @@ func PublishInterceptor(strategy Strategy) pubsub.PublishInterceptor {
 			if backoff := strategy.Proceed(topic, m); backoff > 0 {
 				select {
 				case <-time.After(backoff):
-					// TODO(stevvooe): This branch holds up the next try. Before, we
+					// TODO: This branch holds up the next try. Before, we
 					// would simply break to the "retry" label and then possibly wait
 					// again. However, this requires all retry strategies to have a
 					// large probability of probing the sync for success, rather than
@@ -73,7 +73,7 @@ func SubscriberInterceptor(strategy Strategy) pubsub.SubscriberInterceptor {
 			if backoff := strategy.Proceed(topic, m); backoff > 0 {
 				select {
 				case <-time.After(backoff):
-					// TODO(stevvooe): This branch holds up the next try. Before, we
+					// TODO: This branch holds up the next try. Before, we
 					// would simply break to the "retry" label and then possibly wait
 					// again. However, this requires all retry strategies to have a
 					// large probability of probing the sync for success, rather than
