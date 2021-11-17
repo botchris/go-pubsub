@@ -58,7 +58,7 @@ func TestSubscribeInterceptor(t *testing.T) {
 			return errors.New("recovery function")
 		}
 
-		interceptor := pubsub.WithSubscribeInterceptor(recover.SubscriberInterceptor(recovery))
+		interceptor := pubsub.WithSubscriberInterceptor(recover.SubscriberInterceptor(recovery))
 		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
 
 		subCalls := 0
