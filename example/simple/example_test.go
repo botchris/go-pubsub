@@ -26,7 +26,7 @@ func Test_EndToEnd(t *testing.T) {
 		client := pubsub.NewMiddlewareBroker(
 			broker,
 			pubsub.WithPublishInterceptor(printer.PublishInterceptor(writer)),
-			pubsub.WithSubscribeInterceptor(printer.SubscriberInterceptor(writer)),
+			pubsub.WithSubscriberInterceptor(printer.SubscriberInterceptor(writer)),
 		)
 		rx := &lockedCounter{}
 		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {

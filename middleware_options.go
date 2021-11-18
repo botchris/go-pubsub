@@ -52,10 +52,10 @@ func WithChainPublishInterceptors(interceptors ...PublishInterceptor) Option {
 	})
 }
 
-// WithSubscribeInterceptor returns an Option that sets the SubscriberInterceptor for the broker.
+// WithSubscriberInterceptor returns an Option that sets the SubscriberInterceptor for the broker.
 // Only one interceptor can be installed. The construction of multiple interceptors (e.g., chaining)
 // can be implemented at the caller.
-func WithSubscribeInterceptor(i SubscriberInterceptor) Option {
+func WithSubscriberInterceptor(i SubscriberInterceptor) Option {
 	return newFuncOption(func(o *options) {
 		if o.subscribeInterceptor != nil {
 			panic("the middleware subscribe interceptor was already set and may not be reset.")
@@ -65,10 +65,10 @@ func WithSubscribeInterceptor(i SubscriberInterceptor) Option {
 	})
 }
 
-// WithChainSubscribeInterceptors returns an Option that specifies the chained interceptor for subscribing.
+// WithChainSubscriberInterceptors returns an Option that specifies the chained interceptor for subscribing.
 // The first interceptor will be the outermost, while the last interceptor will be the innermost wrapper around the
 // real call. All subscribe interceptors added by this method will be chained.
-func WithChainSubscribeInterceptors(interceptors ...SubscriberInterceptor) Option {
+func WithChainSubscriberInterceptors(interceptors ...SubscriberInterceptor) Option {
 	return newFuncOption(func(o *options) {
 		o.chainSubscribeInterceptors = append(o.chainSubscribeInterceptors, interceptors...)
 	})

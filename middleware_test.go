@@ -95,7 +95,7 @@ func Test_Subscribe(t *testing.T) {
 		broker := nop.NewBroker()
 		spy := newSubscribeInterceptorSpy()
 		tid := pubsub.Topic("yolo")
-		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithSubscribeInterceptor(spy.fn))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithSubscriberInterceptor(spy.fn))
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			return nil
 		})
@@ -128,7 +128,7 @@ func Test_Subscribe(t *testing.T) {
 		}
 
 		tid := pubsub.Topic("yolo")
-		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithChainSubscribeInterceptors(wrapper1, wrapper2))
+		instance := pubsub.NewMiddlewareBroker(broker, pubsub.WithChainSubscriberInterceptors(wrapper1, wrapper2))
 		srx := &lockedCounter{}
 		subscriber := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
 			srx.inc()
