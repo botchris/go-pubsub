@@ -241,9 +241,10 @@ func (b *broker) run() {
 			}
 
 			noty.ReceiptHandle = *n.ReceiptHandle
+			topic := b.topics.nameOf(noty.TopicARN)
 
 			b.mu.RLock()
-			subs, ok := b.subs[b.topics.nameOf(noty.TopicARN)]
+			subs, ok := b.subs[topic]
 			b.mu.RUnlock()
 
 			if !ok {
@@ -296,7 +297,7 @@ func (b *broker) handleNotification(sub *subscription, noty sqsNotification) err
 		return err
 	}
 
-	if dErr := sub.handler.Deliver(ctx, message); dErr != nil {
+	if dErr := sub.handler.Deliver(ctx, sub.topic, message); dErr != nil {
 		mErr := &multierror.Error{}
 		mErr = multierror.Append(mErr, dErr)
 

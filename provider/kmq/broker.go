@@ -119,7 +119,6 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 	defer b.mu.Unlock()
 
 	ctx, cancel := context.WithCancel(b.ctx)
-
 	if _, ok := b.subs[topic]; !ok {
 		b.subs[topic] = make(map[string]*subscription)
 	}
@@ -136,7 +135,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 			return
 		}
 
-		if hErr := b.handleRcv(msg, subscriber); hErr != nil {
+		if hErr := b.handleRcv(msg, topic, subscriber); hErr != nil {
 			// TODO: monitor error
 			return
 		}
@@ -206,7 +205,7 @@ func (b *broker) Shutdown(_ context.Context) error {
 	return b.client.Close()
 }
 
-func (b *broker) handleRcv(msg *kubemq.Event, sub *pubsub.Subscriber) error {
+func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub *pubsub.Subscriber) error {
 	message, err := b.options.decoder(msg.Body)
 	if err != nil {
 		return err
@@ -215,5 +214,5 @@ func (b *broker) handleRcv(msg *kubemq.Event, sub *pubsub.Subscriber) error {
 	ctx, cancel := context.WithTimeout(b.ctx, b.options.deliverTimeout)
 	defer cancel()
 
-	return sub.Deliver(ctx, message)
+	return sub.Deliver(ctx, topic, message)
 }

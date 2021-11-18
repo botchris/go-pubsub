@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"context"
-	"reflect"
 )
 
 // PublishInterceptor provides a hook to intercept each message before it gets published.
@@ -60,33 +59,11 @@ func (md *middleware) Publish(ctx context.Context, topic Topic, m interface{}) e
 }
 
 func (md *middleware) Subscribe(ctx context.Context, topic Topic, subscriber *Subscriber) error {
-	// no interceptor, then just deliver
 	if md.opts.subscribeInterceptor == nil {
 		return md.opts.provider.Subscribe(ctx, topic, subscriber)
 	}
 
-	originalCallable := subscriber.handlerFunc
-	newCallable := reflect.ValueOf(func(ctx context.Context, m interface{}) error {
-		next := func(ctx context.Context, s *Subscriber, topic Topic, m interface{}) error {
-			// pass to the origin handling function
-			args := []reflect.Value{
-				reflect.ValueOf(ctx),
-				reflect.ValueOf(m),
-			}
-
-			if out := originalCallable.Call(args); out[0].Interface() != nil {
-				return out[0].Interface().(error)
-			}
-
-			return nil
-		}
-
-		mw := md.opts.subscribeInterceptor(ctx, next)
-
-		return mw(ctx, subscriber, topic, m)
-	})
-
-	subscriber.handlerFunc = newCallable
+	subscriber.interceptor = md.opts.subscribeInterceptor
 
 	return md.opts.provider.Subscribe(ctx, topic, subscriber)
 }

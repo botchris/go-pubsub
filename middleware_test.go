@@ -105,7 +105,7 @@ func Test_Subscribe(t *testing.T) {
 
 		assert.Len(t, spy.m, 0)
 		require.NoError(t, instance.Subscribe(ctx, tid, subscriber))
-		require.NoError(t, subscriber.Deliver(ctx, &CustomMessage{}))
+		require.NoError(t, subscriber.Deliver(ctx, tid, &CustomMessage{}))
 		require.Len(t, spy.m, 1)
 	})
 
@@ -142,7 +142,7 @@ func Test_Subscribe(t *testing.T) {
 		assert.Len(t, interceptor1.m, 0)
 		assert.Len(t, interceptor2.m, 0)
 		require.NoError(t, instance.Subscribe(ctx, tid, subscriber))
-		require.NoError(t, subscriber.Deliver(ctx, &CustomMessage{}))
+		require.NoError(t, subscriber.Deliver(ctx, tid, &CustomMessage{}))
 		assert.Len(t, interceptor1.m, 1)
 		assert.Len(t, interceptor2.m, 1)
 		assert.Equal(t, 1, srx.read())

@@ -41,7 +41,7 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 			err:        nil,
 		}
 
-		if err := subscriber.Deliver(ctx, m); err != nil {
+		if err := subscriber.Deliver(ctx, t.id, m); err != nil {
 			result.err = err
 		}
 
