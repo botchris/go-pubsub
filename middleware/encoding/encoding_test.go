@@ -42,7 +42,7 @@ func TestInterceptors(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN a memory broker with two subscribers and custom encoder/decoder", func(t *testing.T) {
+	t.Run("GIVEN a memory broker with two subscribers and custom encoder/decoder with cache capabilities", func(t *testing.T) {
 		decoderCalls := 0
 		decoder := func(bytes []byte) (interface{}, error) {
 			decoderCalls++
