@@ -33,6 +33,14 @@ type Subscriber struct {
 	handlerFunc reflect.Value
 	messageType reflect.Type
 	messageKind reflect.Kind
+	interceptor SubscriberInterceptor
+}
+
+// SubscriberReflect provides reflective information about the type of message
+// a subscriber is associated with.
+type SubscriberReflect struct {
+	MessageType reflect.Type
+	MessageKind reflect.Kind
 }
 
 // NewSubscriber builds a new subscriber instance for the given function.
@@ -80,7 +88,28 @@ func (s *Subscriber) String() string {
 }
 
 // Deliver delivers the given message to this subscribers if acceptable
-func (s *Subscriber) Deliver(ctx context.Context, message interface{}) error {
+func (s *Subscriber) Deliver(ctx context.Context, topic Topic, message interface{}) error {
+	if s.interceptor != nil {
+		next := func(ctx context.Context, s *Subscriber, topic Topic, m interface{}) error {
+			return s.deliver(ctx, m)
+		}
+
+		return s.interceptor(ctx, next)(ctx, s, topic, message)
+	}
+
+	return s.deliver(ctx, message)
+}
+
+// Reflect returns reflective information for the message type this subscriber
+// is associated with.
+func (s *Subscriber) Reflect() SubscriberReflect {
+	return SubscriberReflect{
+		MessageType: s.messageType,
+		MessageKind: s.messageKind,
+	}
+}
+
+func (s *Subscriber) deliver(ctx context.Context, message interface{}) error {
 	if messageType := reflect.TypeOf(message); !s.accepts(messageType) {
 		return nil
 	}

@@ -214,6 +214,34 @@ func Test_Broker_Publish(t *testing.T) {
 		require.EqualValues(t, 2, rx.Read())
 	})
 
+	t.Run("GIVEN a subscriber for a map-type message WHEN publishing a message matching such type THEN subscriber receives the message", func(t *testing.T) {
+		ctx := context.Background()
+		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		rx := &lockedCounter{}
+		s := pubsub.NewSubscriber(func(ctx context.Context, m map[string]string) error {
+			rx.Inc()
+
+			return nil
+		})
+
+		topic := pubsub.Topic("yolo-1")
+		require.NoError(t, broker.Subscribe(ctx, topic, s))
+
+		subscriptions, err := broker.Subscriptions(ctx)
+		require.NoError(t, err)
+		require.Len(t, subscriptions, 1)
+
+		toSend := map[string]string{
+			"key": "value",
+		}
+
+		require.NoError(t, broker.Publish(ctx, topic, toSend))
+		require.EqualValues(t, 1, rx.Read())
+
+		require.NoError(t, broker.Publish(ctx, topic, toSend))
+		require.EqualValues(t, 2, rx.Read())
+	})
+
 	t.Run("GIVEN a subscriber to a concrete pointer type WHEN publishing a messages not of that type THEN subscriber receives only desired type of the message", func(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
