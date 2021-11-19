@@ -36,6 +36,13 @@ type Subscriber struct {
 	interceptor SubscriberInterceptor
 }
 
+// SubscriberReflect provides reflective information about the type of message
+// a subscriber is associated with.
+type SubscriberReflect struct {
+	MessageType reflect.Type
+	MessageKind reflect.Kind
+}
+
 // NewSubscriber builds a new subscriber instance for the given function.
 //
 // This function WILL PANIC if the given handler does not match the signature
@@ -91,6 +98,15 @@ func (s *Subscriber) Deliver(ctx context.Context, topic Topic, message interface
 	}
 
 	return s.deliver(ctx, message)
+}
+
+// Reflect returns reflective information for the message type this subscriber
+// is associated with.
+func (s *Subscriber) Reflect() SubscriberReflect {
+	return SubscriberReflect{
+		MessageType: s.messageType,
+		MessageKind: s.messageKind,
+	}
 }
 
 func (s *Subscriber) deliver(ctx context.Context, message interface{}) error {
