@@ -44,6 +44,7 @@ The `pubsub` package comes with a set of built-in providers:
   system by interchanging messages, which can be used as a simple "Message 
   Bus" replacement.
 - `nop`: s simple NOP broker implementation that can be used for testing.
+- `redis`: a broker that uses redis streams as PubSub mechanism.
 - `sns`: a Broker that uses AWS SNS and AWS SQS.
 - `kmq`: a KubeMQ implementation of the Broker interface.
 
