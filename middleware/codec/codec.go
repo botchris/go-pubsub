@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"unsafe"
 
 	"github.com/botchris/go-pubsub"
 	lru "github.com/hashicorp/golang-lru"
@@ -17,22 +18,21 @@ type EncodeFunc func(interface{}) ([]byte, error)
 // DecodeFunc is a function that decodes a message from a byte slice.
 type DecodeFunc func([]byte, interface{}) error
 
-// PublishInterceptor intercepts each message and encodes it before publishing.
-func PublishInterceptor(encoder EncodeFunc) pubsub.PublishInterceptor {
-	return func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
-		return func(ctx context.Context, topic pubsub.Topic, m interface{}) error {
-			enc, err := encoder(m)
-			if err != nil {
-				return err
-			}
-
-			return next(ctx, topic, enc)
-		}
-	}
+type middleware struct {
+	pubsub.Broker
+	cache *lru.Cache
+	enc   EncodeFunc
+	dec   DecodeFunc
 }
 
-// SubscriberInterceptor intercepts each message that is delivered to a
-// subscribers and decodes it assuming that the message is a byte slice.
+// NewCodecMiddleware creates a new Codec middleware.
+//
+// Publishing:
+// Intercepts each message and encodes it before publishing to underlying broker.
+//
+// Subscribers:
+// Intercepts each message that is delivered to a subscribers and decodes it
+// assuming that the incoming message is a byte slice.
 //
 // Decoder function is invoked once for each desired type, and it takes
 // two arguments:
@@ -60,46 +60,119 @@ func PublishInterceptor(encoder EncodeFunc) pubsub.PublishInterceptor {
 // to subscribers. This may produce unnecessary decoding operation when the same
 // message is delivered to multiple subscribers. To address this issue, this
 // interceptor uses a small LRU cache of each seen decoded message.
-func SubscriberInterceptor(decoder DecodeFunc) pubsub.SubscriberInterceptor {
+func NewCodecMiddleware(broker pubsub.Broker, enc EncodeFunc, dec DecodeFunc) pubsub.Broker {
 	cache, _ := lru.New(256)
 
-	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
-		return func(ctx context.Context, s *pubsub.Subscriber, t pubsub.Topic, m interface{}) error {
+	return &middleware{
+		Broker: broker,
+		cache:  cache,
+		enc:    enc,
+		dec:    dec,
+	}
+}
+
+func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+	bytes, err := mw.enc(m)
+	if err != nil {
+		return err
+	}
+
+	return mw.Broker.Publish(ctx, topic, bytes)
+}
+
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+	{
+		rs := reflect.ValueOf(subscriber).Elem()
+		rf := rs.FieldByName("messageType")
+		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+
+		newMessageType := reflect.TypeOf([]byte{})
+		rf.Set(reflect.ValueOf(newMessageType))
+	}
+
+	{
+		rs := reflect.ValueOf(subscriber).Elem()
+		rf := rs.FieldByName("messageKind")
+		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+
+		newMessageKind := reflect.TypeOf(reflect.Slice)
+		rf.Set(reflect.ValueOf(newMessageKind))
+	}
+
+	{
+		rs := reflect.ValueOf(subscriber).Elem()
+		rf := rs.FieldByName("handlerFunc")
+		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+		originalCallable := rf.Interface().(reflect.Value)
+
+		handler := func(ctx context.Context, m interface{}) error {
 			bytes, ok := m.([]byte)
 			if !ok {
 				return errors.New("message is not a []byte")
 			}
 
-			srf := s.Reflect()
-
+			srf := subscriber.Reflect()
 			h := sha1.New()
 			key := append(bytes, []byte(srf.MessageType.String())...)
 			hash := fmt.Sprintf("%x", h.Sum(key))
 
-			if found, hit := cache.Get(hash); hit {
-				return next(ctx, s, t, found)
+			if found, hit := mw.cache.Get(hash); hit {
+				args := []reflect.Value{
+					reflect.ValueOf(ctx),
+					reflect.ValueOf(found),
+				}
+
+				if out := originalCallable.Call(args); out[0].Interface() != nil {
+					return out[0].Interface().(error)
+				}
+
+				return nil
 			}
 
-			base := srf.MessageType
-			if srf.MessageKind == reflect.Ptr {
-				base = base.Elem()
+			msg, err := mw.decodeFor(bytes, subscriber)
+			if err != nil {
+				return nil
 			}
 
-			msg := reflect.New(base).Interface()
-			if err := decoder(bytes, msg); err != nil {
-				return err
+			mw.cache.Add(hash, msg)
+
+			args := []reflect.Value{
+				reflect.ValueOf(ctx),
+				reflect.ValueOf(msg),
 			}
 
-			if srf.MessageKind == reflect.Ptr {
-				cache.Add(hash, msg)
-
-				return next(ctx, s, t, msg)
+			if out := originalCallable.Call(args); out[0].Interface() != nil {
+				return out[0].Interface().(error)
 			}
 
-			message := reflect.ValueOf(msg).Elem().Interface()
-			cache.Add(hash, message)
-
-			return next(ctx, s, t, message)
+			return nil
 		}
+
+		newCallable := reflect.ValueOf(handler)
+		rf.Set(reflect.ValueOf(newCallable))
 	}
+
+	return mw.Broker.Subscribe(ctx, topic, subscriber)
+}
+
+// decodeFor attempts to dynamically decode a raw message for provided
+// subscriber using the given decoder function.
+func (mw middleware) decodeFor(raw []byte, s pubsub.Subscriber) (interface{}, error) {
+	srf := s.Reflect()
+	base := srf.MessageType
+
+	if srf.MessageKind == reflect.Ptr {
+		base = base.Elem()
+	}
+
+	msg := reflect.New(base).Interface()
+	if err := mw.dec(raw, msg); err != nil {
+		return nil, err
+	}
+
+	if srf.MessageKind == reflect.Ptr {
+		return msg, nil
+	}
+
+	return reflect.ValueOf(msg).Elem().Interface(), nil
 }

@@ -19,14 +19,7 @@ func TestProto(t *testing.T) {
 
 	t.Run("GIVEN a memory broker with one subscriber and proto encoder/decoder interceptors", func(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(codec.ProtoEncoder),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(codec.ProtoDecoder),
-			),
-		)
+		broker = codec.NewCodecMiddleware(broker, codec.ProtoEncoder, codec.ProtoDecoder)
 
 		var received *timestamppb.Timestamp
 		now := timestamppb.Now()
@@ -59,14 +52,7 @@ func TestJson(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(json.Marshal),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(decoder),
-			),
-		)
+		broker = codec.NewCodecMiddleware(broker, json.Marshal, decoder)
 
 		toSend := &testMessage{Value: "test"}
 
@@ -107,15 +93,7 @@ func TestJson(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(json.Marshal),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(decoder),
-			),
-		)
-
+		broker = codec.NewCodecMiddleware(broker, json.Marshal, decoder)
 		toSend := testMessage{Value: "test"}
 
 		var rcv testMessage
@@ -147,15 +125,7 @@ func TestJson(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(json.Marshal),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(decoder),
-			),
-		)
-
+		broker = codec.NewCodecMiddleware(broker, json.Marshal, decoder)
 		toSend := map[string]string{"value": "test"}
 
 		var rcv map[string]string
@@ -187,15 +157,7 @@ func TestJson(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(json.Marshal),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(decoder),
-			),
-		)
-
+		broker = codec.NewCodecMiddleware(broker, json.Marshal, decoder)
 		toSend := "testing"
 
 		var rcv string
@@ -227,15 +189,7 @@ func TestJson(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		broker = pubsub.NewMiddlewareBroker(broker,
-			pubsub.WithPublishInterceptor(
-				codec.PublishInterceptor(json.Marshal),
-			),
-			pubsub.WithSubscriberInterceptor(
-				codec.SubscriberInterceptor(decoder),
-			),
-		)
-
+		broker = codec.NewCodecMiddleware(broker, json.Marshal, decoder)
 		toSend := "testing"
 
 		var rcv string

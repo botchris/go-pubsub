@@ -24,8 +24,7 @@ func TestPublishInterceptor(t *testing.T) {
 			return recoveryErr
 		}
 
-		interceptor := pubsub.WithPublishInterceptor(recover.PublishInterceptor(recovery))
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		broker = recover.RecoveryMiddleware(broker, recovery)
 
 		t.Run("WHEN publish panics", func(t *testing.T) {
 			var err error
@@ -58,8 +57,7 @@ func TestSubscribeInterceptor(t *testing.T) {
 			return errors.New("recovery function")
 		}
 
-		interceptor := pubsub.WithSubscriberInterceptor(recover.SubscriberInterceptor(recovery))
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		broker = recover.RecoveryMiddleware(broker, recovery)
 
 		subCalls := 0
 		sub := pubsub.NewSubscriber(func(ctx context.Context, p string) error {

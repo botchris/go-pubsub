@@ -22,16 +22,12 @@ func TestPublishInterceptor(t *testing.T) {
 		mock := &intermittentFailBroker{worksEvery: 5}
 		broker := pubsub.Broker(mock)
 
-		interceptor := pubsub.WithPublishInterceptor(
-			retry.PublishInterceptor(
-				retry.NewExponentialBackoff(retry.ExponentialBackoffConfig{
-					Base:   100 * time.Millisecond,
-					Factor: 100 * time.Millisecond,
-					Max:    5 * time.Second,
-				}),
-			),
-		)
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		strategy := retry.NewExponentialBackoff(retry.ExponentialBackoffConfig{
+			Base:   100 * time.Millisecond,
+			Factor: 100 * time.Millisecond,
+			Max:    5 * time.Second,
+		})
+		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 
 		t.Run("WHEN underlying publishing fails", func(t *testing.T) {
 			err := broker.Publish(ctx, "topic", "message")
@@ -52,12 +48,8 @@ func TestPublishInterceptor(t *testing.T) {
 		mock := &intermittentFailBroker{worksEvery: 5}
 		broker := pubsub.Broker(mock)
 
-		interceptor := pubsub.WithPublishInterceptor(
-			retry.PublishInterceptor(
-				retry.NewBreakerStrategy(5, time.Second),
-			),
-		)
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		strategy := retry.NewBreakerStrategy(5, time.Second)
+		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 
 		t.Run("WHEN underlying publishing fails 5 times in a row", func(t *testing.T) {
 			err := broker.Publish(ctx, "topic", "message")
@@ -92,18 +84,14 @@ func TestSubscriberInterceptor(t *testing.T) {
 			return fmt.Errorf("fails")
 		}
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		interceptor := pubsub.WithSubscriberInterceptor(
-			retry.SubscriberInterceptor(
-				retry.NewExponentialBackoff(retry.ExponentialBackoffConfig{
-					Base:   100 * time.Millisecond,
-					Factor: 100 * time.Millisecond,
-					Max:    5 * time.Second,
-				}),
-			),
-		)
+		strategy := retry.NewExponentialBackoff(retry.ExponentialBackoffConfig{
+			Base:   100 * time.Millisecond,
+			Factor: 100 * time.Millisecond,
+			Max:    5 * time.Second,
+		})
 
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
 		sub := pubsub.NewSubscriber(handler)
 
@@ -132,14 +120,9 @@ func TestSubscriberInterceptor(t *testing.T) {
 			return fmt.Errorf("fails")
 		}
 
+		strategy := retry.NewBreakerStrategy(4, time.Second)
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		interceptor := pubsub.WithSubscriberInterceptor(
-			retry.SubscriberInterceptor(
-				retry.NewBreakerStrategy(4, time.Second),
-			),
-		)
-
-		broker = pubsub.NewMiddlewareBroker(broker, interceptor)
+		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
 		sub := pubsub.NewSubscriber(handler)
 

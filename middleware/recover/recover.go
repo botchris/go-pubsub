@@ -3,6 +3,8 @@ package recover
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"unsafe"
 
 	"github.com/botchris/go-pubsub"
 )
@@ -10,37 +12,62 @@ import (
 // RecoveryHandlerFunc is a function that recovers from the panic `p` by returning an `error`.
 type RecoveryHandlerFunc func(ctx context.Context, p interface{}) error
 
-// PublishInterceptor adds panic recovery capabilities to publishers.
-func PublishInterceptor(fn RecoveryHandlerFunc) pubsub.PublishInterceptor {
-	return func(ctx context.Context, next pubsub.PublishHandler) pubsub.PublishHandler {
-		return func(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
-			defer func(ctx context.Context) {
-				if r := recover(); r != nil {
-					err = recoverFrom(ctx, r, "pubsub: publisher panic\n", fn)
-				}
-			}(ctx)
-
-			err = next(ctx, topic, m)
-
-			return
-		}
-	}
+type middleware struct {
+	pubsub.Broker
+	handler RecoveryHandlerFunc
 }
 
-// SubscriberInterceptor adds panic recovery capabilities to subscribers.
-func SubscriberInterceptor(fn RecoveryHandlerFunc) pubsub.SubscriberInterceptor {
-	return func(ctx context.Context, next pubsub.SubscriberMessageHandler) pubsub.SubscriberMessageHandler {
-		return func(ctx context.Context, s *pubsub.Subscriber, t pubsub.Topic, m interface{}) (err error) {
-			defer func(ctx context.Context) {
-				if r := recover(); r != nil {
-					err = recoverFrom(ctx, r, "pubsub: subscriber panic\n", fn)
-				}
-			}(ctx)
-
-			err = next(ctx, s, t, m)
-
-			return
+func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
+	defer func(ctx context.Context) {
+		if r := recover(); r != nil {
+			err = recoverFrom(ctx, r, "pubsub: publisher panic\n", mw.handler)
 		}
+	}(ctx)
+
+	err = mw.Broker.Publish(ctx, topic, m)
+
+	return
+}
+
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	rs := reflect.ValueOf(subscriber).Elem()
+	rf := rs.FieldByName("handlerFunc")
+	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+	originalCallable := rf.Interface().(reflect.Value)
+
+	handler := func(ctx context.Context, m interface{}) (err error) {
+		defer func(ctx context.Context) {
+			if r := recover(); r != nil {
+				err = recoverFrom(ctx, r, "pubsub: subscriber panic\n", mw.handler)
+			}
+		}(ctx)
+
+		args := []reflect.Value{
+			reflect.ValueOf(ctx),
+			reflect.ValueOf(m),
+		}
+
+		if out := originalCallable.Call(args); out[0].Interface() != nil {
+			err = out[0].Interface().(error)
+		}
+
+		return
+	}
+
+	newCallable := reflect.ValueOf(handler)
+	rf.Set(reflect.ValueOf(newCallable))
+
+	return mw.Broker.Subscribe(ctx, topic, subscriber)
+}
+
+func (mw middleware) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	return mw.Broker.Unsubscribe(ctx, topic, subscriber)
+}
+
+func RecoveryMiddleware(parent pubsub.Broker, handler RecoveryHandlerFunc) pubsub.Broker {
+	return &middleware{
+		Broker:  parent,
+		handler: handler,
 	}
 }
 
