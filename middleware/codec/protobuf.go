@@ -6,20 +6,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ProtoEncoder assumes that the given message is a proto message and converts it into a ProtoAny message which is
-// later serialized into a byte slice.
-var ProtoEncoder = func(msg interface{}) ([]byte, error) {
-	p, ok := msg.(proto.Message)
+// Protobuf encodes and decodes messages using protocol buffers.
+var Protobuf = protobuf{}
+
+type protobuf struct{}
+
+// Encode assumes that the given message is a proto message and encodes it using
+// `proto.Marshal`
+func (p protobuf) Encode(msg interface{}) ([]byte, error) {
+	pb, ok := msg.(proto.Message)
 	if !ok {
 		return nil, errors.New("message is not a proto message")
 	}
 
-	return proto.Marshal(p)
+	return proto.Marshal(pb)
 }
 
-// ProtoDecoder assumes that the incoming message is a ProtoAny message and converts it back to its underlying
-// proto message.
-var ProtoDecoder = func(raw []byte, target interface{}) error {
+// Decode assumes that the given target is a pointer to a `proto.Message`
+// implementation and decodes it using `proto.Unmarshal`
+func (p protobuf) Decode(raw []byte, target interface{}) error {
 	t, ok := target.(proto.Message)
 	if !ok {
 		return nil
