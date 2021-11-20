@@ -12,17 +12,16 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-// EncodeFunc is a function that encodes a message into a byte slice.
-type EncodeFunc func(interface{}) ([]byte, error)
-
-// DecodeFunc is a function that decodes a message from a byte slice.
-type DecodeFunc func([]byte, interface{}) error
+// Codec represents a component that can encode and decode messages.
+type Codec interface {
+	Encode(interface{}) ([]byte, error)
+	Decode([]byte, interface{}) error
+}
 
 type middleware struct {
 	pubsub.Broker
 	cache *lru.Cache
-	enc   EncodeFunc
-	dec   DecodeFunc
+	codec Codec
 }
 
 // NewCodecMiddleware creates a new Codec middleware that encodes/decodes
@@ -62,19 +61,18 @@ type middleware struct {
 // to subscribers. This may produce unnecessary decoding operation when the same
 // message is delivered to multiple subscribers. To address this issue, this
 // interceptor uses a small LRU cache of each seen decoded message.
-func NewCodecMiddleware(broker pubsub.Broker, enc EncodeFunc, dec DecodeFunc) pubsub.Broker {
+func NewCodecMiddleware(broker pubsub.Broker, codec Codec) pubsub.Broker {
 	cache, _ := lru.New(256)
 
 	return &middleware{
 		Broker: broker,
 		cache:  cache,
-		enc:    enc,
-		dec:    dec,
+		codec:  codec,
 	}
 }
 
 func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
-	bytes, err := mw.enc(m)
+	bytes, err := mw.codec.Encode(m)
 	if err != nil {
 		return err
 	}
@@ -173,7 +171,7 @@ func (mw middleware) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kin
 	}
 
 	msg := reflect.New(base).Interface()
-	if err := mw.dec(raw, msg); err != nil {
+	if err := mw.codec.Decode(raw, msg); err != nil {
 		return nil, err
 	}
 
