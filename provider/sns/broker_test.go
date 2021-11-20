@@ -255,7 +255,7 @@ func (q queue) hasExactlyOnce(expected ...string) bool {
 	return len(seen) == len(expected)
 }
 
-func (c *consumer) handle(_ context.Context, msg string) error {
+func (c *consumer) handle(_ context.Context, _ pubsub.Topic, msg string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

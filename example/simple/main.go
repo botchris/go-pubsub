@@ -21,20 +21,20 @@ func main() {
 
 	broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 
-	s1 := pubsub.NewSubscriber(func(ctx context.Context, m MyMessage) error {
-		fmt.Printf("[s1] -> %+v\n", m)
+	s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
+		fmt.Printf("%s -> %+v -> [s1]\n", t, m)
 
 		return nil
 	})
 
-	s2 := pubsub.NewSubscriber(func(ctx context.Context, m *MyMessage) error {
-		fmt.Printf("[s2] -> %+v\n", m)
+	s2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
+		fmt.Printf("%s -> %+v -> [s2]\n", t, m)
 
 		return nil
 	})
 
-	s3 := pubsub.NewSubscriber(func(ctx context.Context, m string) error {
-		fmt.Printf("[s3] -> %+v\n", m)
+	s3 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+		fmt.Printf("%s -> %+v -> [s3]\n", t, m)
 
 		return nil
 	})
@@ -78,8 +78,8 @@ func main() {
 	}
 
 	// Output:
-	//  [s1] -> {Body:value(hello world)}
-	//  [s2] -> &{Body:pointer(hello world)}
-	//  [s3] -> string(hello world)
+	//  {Body:value(hello world)} -> my-topic -> [s1]
+	//  &{Body:pointer(hello world)} -> my-topic -> [s2]
+	//  string(hello world) -> my-topic -> [s3]
 	//  <nothing>
 }

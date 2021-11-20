@@ -16,57 +16,57 @@ func Test_Subscriber(t *testing.T) {
 	}{
 		{
 			name:        "compound interface",
-			handlerFunc: func(ctx context.Context, m CompoundProtoMessageInterface) error { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m CompoundProtoMessageInterface) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "message by value",
-			handlerFunc: func(ctx context.Context, m EmptyMessage) error { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m EmptyMessage) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "message by pointer",
-			handlerFunc: func(ctx context.Context, m *EmptyMessage) error { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *EmptyMessage) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "anything of custom interface",
-			handlerFunc: func(ctx context.Context, m CustomInterface) error { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m CustomInterface) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "pointer to compound message",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) error { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) error { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "invalid context",
-			handlerFunc: func(ctx interface{}, m *CompoundMessage) error { return nil },
+			handlerFunc: func(ctx interface{}, t pubsub.Topic, m *CompoundMessage) error { return nil },
 			panic:       pubsub.ErrSubscriberInputNoContext,
 		},
 		{
 			name:        "no return",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) {},
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) {},
 			panic:       pubsub.ErrSubscriberOutputLengthMissMatch,
 		},
 		{
 			name:        "returns not of error kind",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) *CompoundMessage { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) *CompoundMessage { return nil },
 			panic:       pubsub.ErrSubscriberOutputNoError,
 		},
 		{
 			name:        "returns compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) CompoundErrorInterface { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) CompoundErrorInterface { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "returns pointer to compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) *CompoundError { return nil },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) *CompoundError { return nil },
 			panic:       nil,
 		},
 		{
 			name:        "returns value of compound error interface",
-			handlerFunc: func(ctx context.Context, m *CompoundMessage) CompoundError { return CompoundError{} },
+			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) CompoundError { return CompoundError{} },
 			panic:       nil,
 		},
 	}

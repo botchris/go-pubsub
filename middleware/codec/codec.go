@@ -25,14 +25,16 @@ type middleware struct {
 	dec   DecodeFunc
 }
 
-// NewCodecMiddleware creates a new Codec middleware.
+// NewCodecMiddleware creates a new Codec middleware that encodes/decodes
+// messages when publishing and delivering.
 //
 // Publishing:
 // Intercepts each message and encodes it before publishing to underlying broker.
 //
 // Subscribers:
-// Intercepts each message that is delivered to a subscribers and decodes it
-// assuming that the incoming message is a byte slice.
+// Intercepts each message before it gets delivered to subscribers and decodes
+// it to subscriber's accepted type assuming that the incoming message is a
+// byte slice.
 //
 // Decoder function is invoked once for each desired type, and it takes
 // two arguments:
@@ -51,9 +53,9 @@ type middleware struct {
 // - `string`
 // - `map[string]string`
 //
-// If decoder is unable to convert the given byte slice into the desired type,
-// and error must be returned. This will prevent from delivering the message to
-// underlying subscriber.
+// If decoder is unable to convert the given byte slice into the desired type
+// (string or map in the above example), and error must be returned. This will
+// prevent from delivering the message to underlying subscriber.
 //
 // NOTE: message decoding are expensive operations.
 // In the other hand, interceptors are applied each time a message is delivered
@@ -80,11 +82,16 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interfac
 	return mw.Broker.Publish(ctx, topic, bytes)
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+	var originalMessageType reflect.Type
+	var originalMessageKind reflect.Kind
+
+	// change the subscriber message type to byte slice
 	{
 		rs := reflect.ValueOf(subscriber).Elem()
 		rf := rs.FieldByName("messageType")
 		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+		originalMessageType = rf.Interface().(reflect.Type)
 
 		newMessageType := reflect.TypeOf([]byte{})
 		rf.Set(reflect.ValueOf(newMessageType))
@@ -94,9 +101,9 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 		rs := reflect.ValueOf(subscriber).Elem()
 		rf := rs.FieldByName("messageKind")
 		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+		originalMessageKind = rf.Interface().(reflect.Kind)
 
-		newMessageKind := reflect.TypeOf(reflect.Slice)
-		rf.Set(reflect.ValueOf(newMessageKind))
+		rf.Set(reflect.ValueOf(reflect.Slice))
 	}
 
 	{
@@ -105,20 +112,20 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
 		originalCallable := rf.Interface().(reflect.Value)
 
-		handler := func(ctx context.Context, m interface{}) error {
+		handler := func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			bytes, ok := m.([]byte)
 			if !ok {
 				return errors.New("message is not a []byte")
 			}
 
-			srf := subscriber.Reflect()
 			h := sha1.New()
-			key := append(bytes, []byte(srf.MessageType.String())...)
+			key := append(bytes, []byte(originalMessageType.String())...)
 			hash := fmt.Sprintf("%x", h.Sum(key))
 
 			if found, hit := mw.cache.Get(hash); hit {
 				args := []reflect.Value{
 					reflect.ValueOf(ctx),
+					reflect.ValueOf(t),
 					reflect.ValueOf(found),
 				}
 
@@ -129,7 +136,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 				return nil
 			}
 
-			msg, err := mw.decodeFor(bytes, subscriber)
+			msg, err := mw.decodeFor(bytes, originalMessageType, originalMessageKind)
 			if err != nil {
 				return nil
 			}
@@ -138,6 +145,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 
 			args := []reflect.Value{
 				reflect.ValueOf(ctx),
+				reflect.ValueOf(t),
 				reflect.ValueOf(msg),
 			}
 
@@ -157,11 +165,10 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 
 // decodeFor attempts to dynamically decode a raw message for provided
 // subscriber using the given decoder function.
-func (mw middleware) decodeFor(raw []byte, s pubsub.Subscriber) (interface{}, error) {
-	srf := s.Reflect()
-	base := srf.MessageType
+func (mw middleware) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
+	base := mType
 
-	if srf.MessageKind == reflect.Ptr {
+	if mKind == reflect.Ptr {
 		base = base.Elem()
 	}
 
@@ -170,7 +177,7 @@ func (mw middleware) decodeFor(raw []byte, s pubsub.Subscriber) (interface{}, er
 		return nil, err
 	}
 
-	if srf.MessageKind == reflect.Ptr {
+	if mKind == reflect.Ptr {
 		return msg, nil
 	}
 

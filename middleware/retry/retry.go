@@ -16,6 +16,8 @@ type middleware struct {
 	subscriberStrategy Strategy
 }
 
+// NewRetryMiddleware returns a middleware that retries messages that fail to
+// be published to topics or delivered to subscribers.
 func NewRetryMiddleware(broker pubsub.Broker, p Strategy, s Strategy) pubsub.Broker {
 	return &middleware{
 		Broker:             broker,
@@ -68,10 +70,11 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
 	originalCallable := rf.Interface().(reflect.Value)
 
-	handler := func(ctx context.Context, m interface{}) error {
+	handler := func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 		done := ctx.Done()
 		args := []reflect.Value{
 			reflect.ValueOf(ctx),
+			reflect.ValueOf(t),
 			reflect.ValueOf(m),
 		}
 

@@ -17,6 +17,15 @@ type middleware struct {
 	handler RecoveryHandlerFunc
 }
 
+// NewRecoveryMiddleware returns a new middleware that recovers from panics when
+// publishing to topics or delivering to subscribers.
+func NewRecoveryMiddleware(parent pubsub.Broker, handler RecoveryHandlerFunc) pubsub.Broker {
+	return &middleware{
+		Broker:  parent,
+		handler: handler,
+	}
+}
+
 func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
 	defer func(ctx context.Context) {
 		if r := recover(); r != nil {
@@ -35,7 +44,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
 	originalCallable := rf.Interface().(reflect.Value)
 
-	handler := func(ctx context.Context, m interface{}) (err error) {
+	handler := func(ctx context.Context, t pubsub.Topic, m interface{}) (err error) {
 		defer func(ctx context.Context) {
 			if r := recover(); r != nil {
 				err = recoverFrom(ctx, r, "pubsub: subscriber panic\n", mw.handler)
@@ -44,6 +53,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 
 		args := []reflect.Value{
 			reflect.ValueOf(ctx),
+			reflect.ValueOf(t),
 			reflect.ValueOf(m),
 		}
 
@@ -62,13 +72,6 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 
 func (mw middleware) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
 	return mw.Broker.Unsubscribe(ctx, topic, subscriber)
-}
-
-func RecoveryMiddleware(parent pubsub.Broker, handler RecoveryHandlerFunc) pubsub.Broker {
-	return &middleware{
-		Broker:  parent,
-		handler: handler,
-	}
 }
 
 func recoverFrom(ctx context.Context, p interface{}, wrap string, r RecoveryHandlerFunc) error {

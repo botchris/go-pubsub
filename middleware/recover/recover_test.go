@@ -24,7 +24,7 @@ func TestPublishInterceptor(t *testing.T) {
 			return recoveryErr
 		}
 
-		broker = recover.RecoveryMiddleware(broker, recovery)
+		broker = recover.NewRecoveryMiddleware(broker, recovery)
 
 		t.Run("WHEN publish panics", func(t *testing.T) {
 			var err error
@@ -46,9 +46,7 @@ func TestSubscribeInterceptor(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN a in-memory broker with one subscriber", func(t *testing.T) {
-		broker := memory.NewBroker(func(ctx context.Context, topic pubsub.Topic, s *pubsub.Subscriber, m interface{}, err error) {
-
-		})
+		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 
 		recoveryCalls := 0
 		recovery := func(ctx context.Context, p interface{}) error {
@@ -57,10 +55,10 @@ func TestSubscribeInterceptor(t *testing.T) {
 			return errors.New("recovery function")
 		}
 
-		broker = recover.RecoveryMiddleware(broker, recovery)
+		broker = recover.NewRecoveryMiddleware(broker, recovery)
 
 		subCalls := 0
-		sub := pubsub.NewSubscriber(func(ctx context.Context, p string) error {
+		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, p string) error {
 			subCalls++
 
 			panic("subscriber panic")

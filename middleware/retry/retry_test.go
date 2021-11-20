@@ -74,7 +74,7 @@ func TestSubscriberInterceptor(t *testing.T) {
 	t.Run("GIVEN memory broker with an exponential backoff delivery and a subscriber that works once every 5 calls", func(t *testing.T) {
 		calls := 0
 		worksEvery := 5
-		handler := func(_ context.Context, m string) error {
+		handler := func(_ context.Context, t pubsub.Topic, m string) error {
 			calls++
 
 			if calls%worksEvery == 0 {
@@ -110,7 +110,7 @@ func TestSubscriberInterceptor(t *testing.T) {
 	t.Run("GIVEN memory broker with a breaker delivery and a subscriber that works once every 5 calls", func(t *testing.T) {
 		calls := 0
 		worksEvery := 5
-		handler := func(_ context.Context, m string) error {
+		handler := func(_ context.Context, t pubsub.Topic, m string) error {
 			calls++
 
 			if calls%worksEvery == 0 {

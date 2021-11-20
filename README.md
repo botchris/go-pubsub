@@ -55,55 +55,20 @@ being delivered to subscribers. Users can use middleware to do logging, metrics
 collection, and many other functionalities that can be shared across PubSub
 Providers.
 
-To use middleware capabilities you must simply instantiate a new Middleware
-Broker as follows:
+To use middleware capabilities you must simply wrap your broker using any of 
+the provided middlewares, example:
 
 ```go
-provider := pubsub.NewMiddlewareBroker(myProvider, ...opts)
+broker := printer.NewPrinterMiddleware(myProvider, os.Stdout)
 ```
 
-This "middleware" acts as a wrapper for the given provider by adding
-interception capabilities. Moreover, the middleware itself can be used
-interchangeably as a Broker as it implements the Broker interface.
+Middlewares act as a wrapper for the given broker by adding interception 
+capabilities. Included middlewares are:
 
-### Publishing Interceptors
-
-Allows to intercept each message before it's handled by underlying Provider.
-
-```go
-provider := pubsub.NewMiddlewareBroker(myProvider,
-    interceptor.WithPublishInterceptor(myPublishingInterceptor),
-)
-```
-
-### Subscribing Interceptors
-
-Provides a hook to intercept each message before it gets delivered to
-subscribers (handler functions). In this case, interception occurs for each
-subscriber receiving a message. For instance, if two subscribers `S1` and `S2`
-receives the same message `M`, then interception logic will be triggered
-twice for the same message `M`.
-
-```go
-provider := pubsub.NewMiddlewareBroker(myProvider,
-    pubsub.WithSubscribeInterceptor(mySubscribingInterceptor),
-)
-```
-
-### Creating Interceptors
-
-You can create your own publishing/subscribing interceptor by defining functions
-that follows the signatures:
-
-```go
-type PublishInterceptor func(ctx context.Context, next PublishHandler) PublishHandler
-```
-
-```go
-type SubscribeInterceptor func(ctx context.Context, next SubscribeMessageHandler) SubscribeMessageHandler
-```
-
-See the `printer` middleware for a more detailed example.
+- `codec`: a middleware that encodes and decodes messages using the given codec.
+- `printer`: a simple middleware that prints each message to the given output.
+- `recover`: a middleware that recovers from panics.
+- `retry`: a middleware that retries publishing messages if the broker fails.
 
 ## TODO
 
@@ -138,20 +103,20 @@ func main() {
   defer cancel()
 
   // Declare subscribers. This usually takes place within a `init()` function
-  s1 := pubsub.NewSubscriber(func(ctx context.Context, m MyMessage) error {
-    fmt.Printf("[s1] -> %+v\n", m)
+  s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
+    fmt.Printf("%s -> %+v -> [s1]\n", t, m)
 
     return nil
   })
 
-  s2 := pubsub.NewSubscriber(func(ctx context.Context, m *MyMessage) error {
-    fmt.Printf("[s2] -> %+v\n", m)
+  s2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
+    fmt.Printf("%s -> %+v -> [s2]\n", t, m)
 
     return nil
   })
 
-  s3 := pubsub.NewSubscriber(func(ctx context.Context, m string) error {
-    fmt.Printf("[s3] -> %+v\n", m)
+  s3 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+    fmt.Printf("%s -> %+v -> [s3]\n", t, m)
 
     return nil
   })
@@ -166,13 +131,13 @@ func main() {
 
   // Publish some messages, we drop errors on purpose for simplification reasons
   _ = broker.Publish(ctx, myTopic, MyMessage{Body: "value(hello world)"})
-  _ = broker.Publish(ctx, Topic, &MyMessage{Body: "pointer(hello world)"})
-  _ = broker.Publish(ctx, Topic, "string(hello world)")
+  _ = broker.Publish(ctx, myTopic, &MyMessage{Body: "pointer(hello world)"})
+  _ = broker.Publish(ctx, myTopic, "string(hello world)")
 
   // Output:
-  //  [s1] -> {Body:value(hello world)}
-  //  [s2] -> &{Body:pointer(hello world)}
-  //  [s3] -> string(hello world)
+  //  {Body:value(hello world)} -> my-topic -> [s1]
+  //  &{Body:pointer(hello world)} -> my-topic -> [s2]
+  //  string(hello world) -> my-topic -> [s3]
 }
 ```
 

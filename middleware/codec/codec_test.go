@@ -23,7 +23,7 @@ func TestProto(t *testing.T) {
 
 		var received *timestamppb.Timestamp
 		now := timestamppb.Now()
-		sub1 := pubsub.NewSubscriber(func(ctx context.Context, timestamp *timestamppb.Timestamp) error {
+		sub1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, timestamp *timestamppb.Timestamp) error {
 			received = timestamp
 
 			return nil
@@ -57,14 +57,14 @@ func TestJson(t *testing.T) {
 		toSend := &testMessage{Value: "test"}
 
 		var rcv1 *testMessage
-		sub1 := pubsub.NewSubscriber(func(ctx context.Context, msg *testMessage) error {
+		sub1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg *testMessage) error {
 			rcv1 = msg
 
 			return nil
 		})
 
 		var rcv2 *testMessage
-		sub2 := pubsub.NewSubscriber(func(ctx context.Context, msg *testMessage) error {
+		sub2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg *testMessage) error {
 			rcv2 = msg
 
 			return nil
@@ -97,7 +97,7 @@ func TestJson(t *testing.T) {
 		toSend := testMessage{Value: "test"}
 
 		var rcv testMessage
-		sub := pubsub.NewSubscriber(func(ctx context.Context, msg testMessage) error {
+		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg testMessage) error {
 			rcv = msg
 
 			return nil
@@ -129,7 +129,7 @@ func TestJson(t *testing.T) {
 		toSend := map[string]string{"value": "test"}
 
 		var rcv map[string]string
-		sub := pubsub.NewSubscriber(func(ctx context.Context, msg map[string]string) error {
+		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg map[string]string) error {
 			rcv = msg
 
 			return nil
@@ -161,7 +161,7 @@ func TestJson(t *testing.T) {
 		toSend := "testing"
 
 		var rcv string
-		sub := pubsub.NewSubscriber(func(ctx context.Context, msg string) error {
+		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg string) error {
 			rcv = msg
 
 			return nil
@@ -193,7 +193,7 @@ func TestJson(t *testing.T) {
 		toSend := "testing"
 
 		var rcv string
-		sub := pubsub.NewSubscriber(func(ctx context.Context, msg interface{}) error {
+		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, msg interface{}) error {
 			rcv = msg.(string)
 
 			return nil

@@ -16,6 +16,8 @@ type middleware struct {
 	writer io.Writer
 }
 
+// NewPrinterMiddleware returns a new middleware that prints messages
+// to the writer the given write when publishing or delivering messages
 func NewPrinterMiddleware(broker pubsub.Broker, writer io.Writer) pubsub.Broker {
 	return &middleware{
 		Broker: broker,
@@ -43,7 +45,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
 	originalCallable := rf.Interface().(reflect.Value)
 
-	handler := func(ctx context.Context, m interface{}) error {
+	handler := func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 		j, err := json.Marshal(m)
 		if err != nil {
 			return err
@@ -56,6 +58,7 @@ func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscrib
 
 		args := []reflect.Value{
 			reflect.ValueOf(ctx),
+			reflect.ValueOf(t),
 			reflect.ValueOf(m),
 		}
 

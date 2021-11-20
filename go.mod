@@ -13,5 +13,6 @@ require (
 	github.com/kubemq-io/kubemq-go v1.7.2
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/stretchr/testify v1.7.0
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 	google.golang.org/protobuf v1.26.0
 )

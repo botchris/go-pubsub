@@ -46,7 +46,7 @@ func Test_Broker_Subscriptions(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, subscriptions, 0)
 
-		s := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error { return nil })
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error { return nil })
 		require.NoError(t, broker.Subscribe(ctx, "yolo", s))
 
 		subscriptions, err = broker.Subscriptions(ctx)
@@ -57,7 +57,7 @@ func Test_Broker_Subscriptions(t *testing.T) {
 	t.Run("GIVEN an empty broker WHEN subscribing to multiple topics THEN broker registers such subscriber", func(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		sub := func(ctx context.Context, m proto.Message) error { return nil }
+		sub := func(ctx context.Context, t pubsub.Topic, m proto.Message) error { return nil }
 
 		subscriptions, err := broker.Subscriptions(ctx)
 		require.NoError(t, err)
@@ -82,7 +82,7 @@ func Test_Broker_Subscriptions(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, subscriptions, 0)
 
-		s := pubsub.NewSubscriber(func(ctx context.Context, m *CustomMessage) error { return nil })
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *CustomMessage) error { return nil })
 		require.NoError(t, broker.Subscribe(ctx, "yolo-1", s))
 
 		subscriptions, err = broker.Subscriptions(ctx)
@@ -95,7 +95,7 @@ func Test_Broker_Unsubscribe(t *testing.T) {
 	t.Run("GIVEN an broker with one topic and one subscriber WHEN unsubscribing THEN broker removes such subscriber", func(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		sub := func(ctx context.Context, m proto.Message) error { return nil }
+		sub := func(ctx context.Context, t pubsub.Topic, m proto.Message) error { return nil }
 
 		subscriptions, err := broker.Subscriptions(ctx)
 		require.NoError(t, err)
@@ -123,7 +123,7 @@ func Test_Broker_Publish(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo")
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.Inc()
 
 			return nil
@@ -144,7 +144,7 @@ func Test_Broker_Publish(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
 
-		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.Inc()
 
 			return nil
@@ -169,7 +169,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.Inc()
 
 			return nil
@@ -194,7 +194,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m *CustomMessage) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *CustomMessage) error {
 			rx.Inc()
 
 			return nil
@@ -218,7 +218,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m map[string]string) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m map[string]string) error {
 			rx.Inc()
 
 			return nil
@@ -246,7 +246,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m *CustomMessage) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *CustomMessage) error {
 			rx.Inc()
 
 			return nil
@@ -269,7 +269,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m DummyInterface) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m DummyInterface) error {
 			rx.Inc()
 
 			return nil
@@ -296,7 +296,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}
 
 		broker := memory.NewBroker(errHandler)
-		s := pubsub.NewSubscriber(func(ctx context.Context, m *CustomMessage) error { return subError })
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *CustomMessage) error { return subError })
 		topic := pubsub.Topic("yolo-1")
 
 		require.NoError(t, broker.Subscribe(ctx, topic, s))

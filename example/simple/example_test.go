@@ -23,23 +23,19 @@ func Test_EndToEnd(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo")
 		writer := bytes.NewBuffer([]byte{})
-		client := pubsub.NewMiddlewareBroker(
-			broker,
-			pubsub.WithPublishInterceptor(printer.PublishInterceptor(writer)),
-			pubsub.WithSubscriberInterceptor(printer.SubscriberInterceptor(writer)),
-		)
+		broker = printer.NewPrinterMiddleware(broker, writer)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m proto.Message) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.inc()
 
 			return nil
 		})
 
-		require.NotNil(t, client)
+		require.NotNil(t, broker)
 		require.NotNil(t, s)
 
-		require.NoError(t, client.Subscribe(ctx, topicID, s))
-		require.NoError(t, client.Publish(ctx, topicID, &emptypb.Empty{}))
+		require.NoError(t, broker.Subscribe(ctx, topicID, s))
+		require.NoError(t, broker.Publish(ctx, topicID, &emptypb.Empty{}))
 		require.Equal(t, 1, rx.read())
 
 		logs := writer.String()
@@ -54,19 +50,18 @@ func Test_EndToEnd(t *testing.T) {
 
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		topicID := pubsub.Topic("yolo-2")
-		client := pubsub.NewMiddlewareBroker(broker)
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			rx.inc()
 
 			return nil
 		})
 
-		require.NotNil(t, client)
+		require.NotNil(t, broker)
 		require.NotNil(t, s)
 
-		require.NoError(t, client.Subscribe(ctx, topicID, s))
-		require.NoError(t, client.Publish(ctx, topicID, &emptypb.Empty{}))
+		require.NoError(t, broker.Subscribe(ctx, topicID, s))
+		require.NoError(t, broker.Publish(ctx, topicID, &emptypb.Empty{}))
 		require.Equal(t, 1, rx.read())
 	})
 }
