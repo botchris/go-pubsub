@@ -305,22 +305,3 @@ func (c *consumer) received() queue {
 
 	return out
 }
-
-type lockedCounter struct {
-	mu      sync.RWMutex
-	counter int
-}
-
-func (c *lockedCounter) inc() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.counter++
-}
-
-func (c *lockedCounter) read() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return c.counter
-}
