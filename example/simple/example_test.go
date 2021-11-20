@@ -10,7 +10,7 @@ import (
 
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/printer"
-	"github.com/botchris/go-pubsub/middleware/recover"
+	"github.com/botchris/go-pubsub/middleware/recovery"
 	"github.com/botchris/go-pubsub/provider/memory"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -31,7 +31,7 @@ func Test_EndToEnd(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
-		broker = recover.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
+		broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
 			panics.inc()
 
 			return errors.New("panic recovery")

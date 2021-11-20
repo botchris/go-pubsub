@@ -1,4 +1,4 @@
-package recover
+package recovery
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 
 type subscriber struct {
 	pubsub.Subscriber
-	handler RecoveryHandlerFunc
+	handler HandlerFunc
 }
 
 func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
 	defer func(ctx context.Context) {
-		if r := recover(); r != nil {
-			err = recoverFrom(ctx, r, "pubsub: subscriber panic\n", s.handler)
+		if p := recover(); p != nil {
+			err = s.handler(ctx, p)
 		}
 	}(ctx)
 

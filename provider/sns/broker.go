@@ -42,6 +42,8 @@ type subscription struct {
 //
 // IMPORTANT: this broker must be used in conjunction with a Codec middleware in
 // order to ensure that the messages are properly encoded and decoded.
+// Otherwise, only binary messages will be accepted when publishing or
+// delivering messages.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		deliverTimeout:       3 * time.Second,

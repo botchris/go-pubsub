@@ -3,7 +3,6 @@ package codec
 import (
 	"context"
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -20,7 +19,7 @@ type subscriber struct {
 func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	bytes, ok := m.([]byte)
 	if !ok {
-		return errors.New("message is not a []byte")
+		return fmt.Errorf("delivery failure: expecting message to be of type []byte, but got `%T`", m)
 	}
 
 	srf := s.Subscriber.Reflect()
