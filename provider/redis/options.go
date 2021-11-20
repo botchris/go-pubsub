@@ -24,6 +24,13 @@ func WithGroupID(groupID string) Option {
 	}
 }
 
+// WithLogger defines a logger for the broker. Default: noop logger.
+func WithLogger(logger Logger) Option {
+	return func(opts *options) {
+		opts.logger = logger
+	}
+}
+
 // WithConsumerTimeout how long to wait trying to send event to a consumer's
 // channel until we consider it has timed out. Default: 10s
 func WithConsumerTimeout(consumerTimeout time.Duration) Option {

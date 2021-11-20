@@ -39,6 +39,7 @@ func NewBroker(ctx context.Context, client *redis.Client, option ...Option) pubs
 	ctx, cancel := context.WithCancel(ctx)
 	opts := &options{
 		groupID:                uuid.New(),
+		logger:                 noopLogger{},
 		consumerTimeout:        10 * time.Second,
 		readGroupTimeout:       10 * time.Second,
 		pendingIdleTime:        60 * time.Second,
