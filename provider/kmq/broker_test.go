@@ -24,7 +24,9 @@ func BenchmarkPublishJSONTenSubs(b *testing.B) {
 	broker, err := prepareJSONBroker(ctx, clientID, "")
 	require.NoError(b, err)
 
-	defer broker.Shutdown(ctx)
+	defer func() {
+		require.NoError(b, broker.Shutdown(ctx))
+	}()
 
 	for i := 0; i < 10; i++ {
 		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
@@ -56,7 +58,9 @@ func BenchmarkPublishProtoTenSubs(b *testing.B) {
 	broker, err := prepareProtoBroker(ctx, clientID, "")
 	require.NoError(b, err)
 
-	defer broker.Shutdown(ctx)
+	defer func() {
+		require.NoError(b, broker.Shutdown(ctx))
+	}()
 
 	for i := 0; i < 10; i++ {
 		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
