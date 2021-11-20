@@ -29,8 +29,31 @@ var (
 	topicType   = reflect.TypeOf(Topic(""))
 )
 
+// SubscriberReflect describes the message a subscriber is interested in.
+type SubscriberReflect struct {
+	MessageType reflect.Type
+	MessageKind reflect.Kind
+}
+
+// Subscriber represents a subscriber function
+type Subscriber interface {
+	// ID returns the unique identifier of the subscriber.
+	ID() string
+
+	// Deliver delivers the message to the subscriber. If subscriber does not
+	// accept this kind of message, it should NOT return an error.
+	Deliver(ctx context.Context, topic Topic, message interface{}) error
+
+	// Reflect returns a description of the message type the subscriber is
+	// interested in.
+	Reflect() SubscriberReflect
+
+	// String returns a string representation of the subscriber.
+	String() string
+}
+
 // Subscriber represents a handling function capable of receiving messages
-type Subscriber struct {
+type subscriber struct {
 	id          string
 	handlerFunc reflect.Value
 	messageType reflect.Type
@@ -51,7 +74,7 @@ type Subscriber struct {
 // other hand, in order to increase Broker's throughput, is highly recommended
 // designing each Broker in such a way that handling of each message is
 // asynchronously, in a separated goroutine.
-func NewSubscriber(handlerFunc interface{}) *Subscriber {
+func NewSubscriber(handlerFunc interface{}) Subscriber {
 	if err := validateHandlerFn(handlerFunc); err != nil {
 		panic(err)
 	}
@@ -62,7 +85,7 @@ func NewSubscriber(handlerFunc interface{}) *Subscriber {
 	id := ulid.MustNew(ulid.Timestamp(t), entropy).String()
 	mType := fnType.In(2)
 
-	return &Subscriber{
+	return &subscriber{
 		id:          id,
 		handlerFunc: reflect.ValueOf(handlerFunc),
 		messageType: mType,
@@ -71,12 +94,12 @@ func NewSubscriber(handlerFunc interface{}) *Subscriber {
 }
 
 // ID returns subscription identifier
-func (s *Subscriber) ID() string {
+func (s *subscriber) ID() string {
 	return s.id
 }
 
 // Deliver delivers the given message to this subscribers if acceptable
-func (s *Subscriber) Deliver(ctx context.Context, topic Topic, message interface{}) error {
+func (s *subscriber) Deliver(ctx context.Context, topic Topic, message interface{}) error {
 	if messageType := reflect.TypeOf(message); !s.accepts(messageType) {
 		return nil
 	}
@@ -94,14 +117,21 @@ func (s *Subscriber) Deliver(ctx context.Context, topic Topic, message interface
 	return nil
 }
 
+func (s *subscriber) Reflect() SubscriberReflect {
+	return SubscriberReflect{
+		MessageType: s.messageType,
+		MessageKind: s.messageKind,
+	}
+}
+
 // String returns a string representation of this subscription
-func (s *Subscriber) String() string {
+func (s *subscriber) String() string {
 	in := s.messageType.String()
 
 	return fmt.Sprintf("%s(%s)", s.id, in)
 }
 
-func (s *Subscriber) accepts(in reflect.Type) bool {
+func (s *subscriber) accepts(in reflect.Type) bool {
 	return in.AssignableTo(s.messageType)
 }
 

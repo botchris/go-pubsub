@@ -39,7 +39,7 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, msg interf
 	return mw.Broker.Publish(ctx, topic, msg)
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	rs := reflect.ValueOf(subscriber).Elem()
 	rf := rs.FieldByName("handlerFunc")
 	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()

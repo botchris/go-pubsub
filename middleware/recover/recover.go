@@ -3,8 +3,6 @@ package recover
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"unsafe"
 
 	"github.com/botchris/go-pubsub"
 )
@@ -38,39 +36,16 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interfac
 	return
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
-	rs := reflect.ValueOf(subscriber).Elem()
-	rf := rs.FieldByName("handlerFunc")
-	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
-	originalCallable := rf.Interface().(reflect.Value)
-
-	handler := func(ctx context.Context, t pubsub.Topic, m interface{}) (err error) {
-		defer func(ctx context.Context) {
-			if r := recover(); r != nil {
-				err = recoverFrom(ctx, r, "pubsub: subscriber panic\n", mw.handler)
-			}
-		}(ctx)
-
-		args := []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf(t),
-			reflect.ValueOf(m),
-		}
-
-		if out := originalCallable.Call(args); out[0].Interface() != nil {
-			err = out[0].Interface().(error)
-		}
-
-		return
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
+	s := &subscriber{
+		Subscriber: sub,
+		handler:    mw.handler,
 	}
 
-	newCallable := reflect.ValueOf(handler)
-	rf.Set(reflect.ValueOf(newCallable))
-
-	return mw.Broker.Subscribe(ctx, topic, subscriber)
+	return mw.Broker.Subscribe(ctx, topic, s)
 }
 
-func (mw middleware) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (mw middleware) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	return mw.Broker.Unsubscribe(ctx, topic, subscriber)
 }
 

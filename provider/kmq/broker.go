@@ -24,7 +24,7 @@ type broker struct {
 type subscription struct {
 	cancel     context.CancelFunc
 	topic      pubsub.Topic
-	subscriber *pubsub.Subscriber
+	subscriber pubsub.Subscriber
 }
 
 // NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
@@ -108,7 +108,7 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 	return b.sender(event)
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
 		ClientId: b.options.clientID,
@@ -144,7 +144,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 	return err
 }
 
-func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -164,8 +164,8 @@ func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
+	out := make(map[pubsub.Topic][]pubsub.Subscriber)
 
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -205,7 +205,7 @@ func (b *broker) Shutdown(_ context.Context) error {
 	return b.client.Close()
 }
 
-func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub *pubsub.Subscriber) error {
+func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub pubsub.Subscriber) error {
 	message, err := b.options.decoder(msg.Body)
 	if err != nil {
 		return err

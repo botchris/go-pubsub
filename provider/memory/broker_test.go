@@ -291,7 +291,7 @@ func Test_Broker_Publish(t *testing.T) {
 		ctx := context.Background()
 		subError := fmt.Errorf("dummy error")
 		errors := &lockedCounter{}
-		errHandler := func(ctx context.Context, topic pubsub.Topic, s *pubsub.Subscriber, m interface{}, err error) {
+		errHandler := func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscriber, m interface{}, err error) {
 			errors.Inc()
 		}
 

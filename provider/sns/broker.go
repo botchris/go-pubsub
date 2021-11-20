@@ -27,7 +27,7 @@ type broker struct {
 type subscription struct {
 	arn     string
 	topic   pubsub.Topic
-	handler *pubsub.Subscriber
+	handler pubsub.Subscriber
 }
 
 // NewBroker returns a broker that uses AWS SNS service for pub/sub messaging over a SQS queue.
@@ -111,7 +111,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -170,8 +170,8 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
+	out := make(map[pubsub.Topic][]pubsub.Subscriber)
 
 	for topic, subs := range b.subs {
 		for _, sub := range subs {

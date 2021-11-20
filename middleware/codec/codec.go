@@ -2,11 +2,6 @@ package codec
 
 import (
 	"context"
-	"crypto/sha1"
-	"errors"
-	"fmt"
-	"reflect"
-	"unsafe"
 
 	"github.com/botchris/go-pubsub"
 	lru "github.com/hashicorp/golang-lru"
@@ -80,104 +75,12 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interfac
 	return mw.Broker.Publish(ctx, topic, bytes)
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
-	var originalMessageType reflect.Type
-	var originalMessageKind reflect.Kind
-
-	// change the subscriber message type to byte slice
-	{
-		rs := reflect.ValueOf(subscriber).Elem()
-		rf := rs.FieldByName("messageType")
-		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
-		originalMessageType = rf.Interface().(reflect.Type)
-
-		newMessageType := reflect.TypeOf([]byte{})
-		rf.Set(reflect.ValueOf(newMessageType))
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
+	s := &subscriber{
+		Subscriber: sub,
+		codec:      mw.codec,
+		cache:      mw.cache,
 	}
 
-	{
-		rs := reflect.ValueOf(subscriber).Elem()
-		rf := rs.FieldByName("messageKind")
-		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
-		originalMessageKind = rf.Interface().(reflect.Kind)
-
-		rf.Set(reflect.ValueOf(reflect.Slice))
-	}
-
-	{
-		rs := reflect.ValueOf(subscriber).Elem()
-		rf := rs.FieldByName("handlerFunc")
-		rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
-		originalCallable := rf.Interface().(reflect.Value)
-
-		handler := func(ctx context.Context, t pubsub.Topic, m interface{}) error {
-			bytes, ok := m.([]byte)
-			if !ok {
-				return errors.New("message is not a []byte")
-			}
-
-			h := sha1.New()
-			key := append(bytes, []byte(originalMessageType.String())...)
-			hash := fmt.Sprintf("%x", h.Sum(key))
-
-			if found, hit := mw.cache.Get(hash); hit {
-				args := []reflect.Value{
-					reflect.ValueOf(ctx),
-					reflect.ValueOf(t),
-					reflect.ValueOf(found),
-				}
-
-				if out := originalCallable.Call(args); out[0].Interface() != nil {
-					return out[0].Interface().(error)
-				}
-
-				return nil
-			}
-
-			msg, err := mw.decodeFor(bytes, originalMessageType, originalMessageKind)
-			if err != nil {
-				return nil
-			}
-
-			mw.cache.Add(hash, msg)
-
-			args := []reflect.Value{
-				reflect.ValueOf(ctx),
-				reflect.ValueOf(t),
-				reflect.ValueOf(msg),
-			}
-
-			if out := originalCallable.Call(args); out[0].Interface() != nil {
-				return out[0].Interface().(error)
-			}
-
-			return nil
-		}
-
-		newCallable := reflect.ValueOf(handler)
-		rf.Set(reflect.ValueOf(newCallable))
-	}
-
-	return mw.Broker.Subscribe(ctx, topic, subscriber)
-}
-
-// decodeFor attempts to dynamically decode a raw message for provided
-// subscriber using the given decoder function.
-func (mw middleware) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
-	base := mType
-
-	if mKind == reflect.Ptr {
-		base = base.Elem()
-	}
-
-	msg := reflect.New(base).Interface()
-	if err := mw.codec.Decode(raw, msg); err != nil {
-		return nil, err
-	}
-
-	if mKind == reflect.Ptr {
-		return msg, nil
-	}
-
-	return reflect.ValueOf(msg).Elem().Interface(), nil
+	return mw.Broker.Subscribe(ctx, topic, s)
 }

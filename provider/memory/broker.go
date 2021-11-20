@@ -12,10 +12,10 @@ import (
 )
 
 // SubscriberErrorHandler used to handle subscribers errors when processing a message.
-type SubscriberErrorHandler func(ctx context.Context, topic pubsub.Topic, s *pubsub.Subscriber, m interface{}, err error)
+type SubscriberErrorHandler func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscriber, m interface{}, err error)
 
 // NopSubscriberErrorHandler an empty error handler
-var NopSubscriberErrorHandler = func(ctx context.Context, topic pubsub.Topic, s *pubsub.Subscriber, m interface{}, err error) {}
+var NopSubscriberErrorHandler = func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscriber, m interface{}, err error) {}
 
 type broker struct {
 	topics        map[pubsub.Topic]*topic
@@ -45,7 +45,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -54,7 +54,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 	return nil
 }
 
-func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -68,11 +68,11 @@ func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
 	b.RLock()
 	defer b.RUnlock()
 
-	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+	out := make(map[pubsub.Topic][]pubsub.Subscriber)
 
 	for tName, t := range b.topics {
 		for _, s := range t.subscribers {

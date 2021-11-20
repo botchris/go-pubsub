@@ -69,7 +69,7 @@ func TestJson(t *testing.T) {
 		t.Run("WHEN publishing a custom pointer message", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))
 
-			t.Run("THEN subscribers receives the message and decoder function is invoked only once", func(t *testing.T) {
+			t.Run("THEN subscribers receives the message and decoder is invoked only once", func(t *testing.T) {
 				require.NotEmpty(t, rcv1)
 				require.NotEmpty(t, rcv2)
 				require.EqualValues(t, jcodec.decoderCalls, 1)
