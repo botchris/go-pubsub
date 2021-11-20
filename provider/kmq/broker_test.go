@@ -12,6 +12,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func BenchmarkPublish(b *testing.B) {
+	ctx := context.Background()
+
+	clientID := "test-client"
+	topic := pubsub.Topic("topic")
+	message := "hello"
+
+	broker, err := prepareBroker(ctx, clientID, "")
+	require.NoError(b, err)
+
+	defer broker.Shutdown(ctx)
+
+	s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+		return nil
+	})
+
+	require.NoError(b, broker.Subscribe(ctx, topic, s1))
+
+	b.StartTimer()
+	for i := 0; i <= b.N; i++ {
+		_ = broker.Publish(ctx, topic, message)
+	}
+	b.StopTimer()
+}
+
 func TestSingleBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
