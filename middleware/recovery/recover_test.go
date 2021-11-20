@@ -1,4 +1,4 @@
-package recover_test
+package recovery_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
-	"github.com/botchris/go-pubsub/middleware/recover"
+	"github.com/botchris/go-pubsub/middleware/recovery"
 	"github.com/botchris/go-pubsub/provider/memory"
 	"github.com/stretchr/testify/require"
 )
@@ -20,11 +20,11 @@ func TestPublishInterceptor(t *testing.T) {
 		broker := pubsub.Broker(&panicBroker{})
 
 		recoveryErr := errors.New("recovery function")
-		recovery := func(ctx context.Context, p interface{}) error {
+		rec := func(ctx context.Context, p interface{}) error {
 			return recoveryErr
 		}
 
-		broker = recover.NewRecoveryMiddleware(broker, recovery)
+		broker = recovery.NewRecoveryMiddleware(broker, rec)
 
 		t.Run("WHEN publish panics", func(t *testing.T) {
 			var err error
@@ -49,13 +49,13 @@ func TestSubscribeInterceptor(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 
 		recoveryCalls := 0
-		recovery := func(ctx context.Context, p interface{}) error {
+		rec := func(ctx context.Context, p interface{}) error {
 			recoveryCalls++
 
 			return errors.New("recovery function")
 		}
 
-		broker = recover.NewRecoveryMiddleware(broker, recovery)
+		broker = recovery.NewRecoveryMiddleware(broker, rec)
 
 		subCalls := 0
 		sub := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, p string) error {

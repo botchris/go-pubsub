@@ -7,9 +7,80 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/kmq"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func BenchmarkPublishJSONTenSubs(b *testing.B) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	clientID := "test-client"
+	topic := pubsub.Topic("topic")
+	message := time.Now().String()
+
+	broker, err := prepareJSONBroker(ctx, clientID, "")
+	require.NoError(b, err)
+
+	defer func() {
+		require.NoError(b, broker.Shutdown(ctx))
+	}()
+
+	for i := 0; i < 10; i++ {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+			return nil
+		})
+
+		require.NoError(b, broker.Subscribe(ctx, topic, s))
+	}
+
+	time.Sleep(time.Second)
+
+	b.ResetTimer()
+	b.StartTimer()
+	for i := 0; i <= b.N; i++ {
+		if pErr := broker.Publish(ctx, topic, message); pErr != nil {
+			b.Fatal(pErr)
+		}
+	}
+	b.StopTimer()
+}
+
+func BenchmarkPublishProtoTenSubs(b *testing.B) {
+	ctx := context.Background()
+
+	clientID := "test-client"
+	topic := pubsub.Topic("topic")
+	message := timestamppb.Now()
+
+	broker, err := prepareProtoBroker(ctx, clientID, "")
+	require.NoError(b, err)
+
+	defer func() {
+		require.NoError(b, broker.Shutdown(ctx))
+	}()
+
+	for i := 0; i < 10; i++ {
+		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+			return nil
+		})
+
+		require.NoError(b, broker.Subscribe(ctx, topic, s))
+	}
+
+	time.Sleep(time.Second)
+
+	b.ResetTimer()
+	b.StartTimer()
+	for i := 0; i <= b.N; i++ {
+		if pErr := broker.Publish(ctx, topic, message); pErr != nil {
+			b.Fatal(pErr)
+		}
+	}
+	b.StopTimer()
+}
 
 func TestSingleBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -17,7 +88,7 @@ func TestSingleBroker(t *testing.T) {
 
 	t.Run("GIVEN a broker with two subscribers to a topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker, err := prepareBroker(ctx, clientID, "")
+		broker, err := prepareJSONBroker(ctx, clientID, "")
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
@@ -60,11 +131,11 @@ func TestMultiInstanceBroker(t *testing.T) {
 
 	t.Run("GIVEN two brokers with the same id and with one subscriber each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker1, err := prepareBroker(ctx, clientID, "g1")
+		broker1, err := prepareJSONBroker(ctx, clientID, "g1")
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		broker2, err := prepareBroker(ctx, clientID, "g1")
+		broker2, err := prepareJSONBroker(ctx, clientID, "g1")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
@@ -113,11 +184,11 @@ func TestMultiHostBroker(t *testing.T) {
 
 	t.Run("GIVEN two brokers with the distinct ids and with one subscriber each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker1, err := prepareBroker(ctx, clientID, "g1")
+		broker1, err := prepareJSONBroker(ctx, clientID, "g1")
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		broker2, err := prepareBroker(ctx, clientID, "g2")
+		broker2, err := prepareJSONBroker(ctx, clientID, "g2")
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
@@ -159,18 +230,34 @@ func TestMultiHostBroker(t *testing.T) {
 	})
 }
 
-func prepareBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
-	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
-	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-
-	return kmq.NewBroker(ctx,
+func prepareJSONBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
+	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
 		kmq.WithGroupID(groupID),
-		kmq.WithEncoder(encoder),
-		kmq.WithDecoder(decoder),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
 	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return codec.NewCodecMiddleware(broker, codec.JSON), nil
+}
+
+func prepareProtoBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
+	broker, err := kmq.NewBroker(ctx,
+		kmq.WithClientID(clientID),
+		kmq.WithGroupID(groupID),
+		kmq.WithServerHost("localhost"),
+		kmq.WithServerPort(50000),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return codec.NewCodecMiddleware(broker, codec.Protobuf), nil
 }
 
 type consumer struct {

@@ -24,11 +24,17 @@ type broker struct {
 type subscription struct {
 	cancel     context.CancelFunc
 	topic      pubsub.Topic
-	subscriber *pubsub.Subscriber
+	subscriber pubsub.Subscriber
 }
 
 // NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
-// This broker will start consuming right on its creation and as long as the given context keeps alive.
+// This broker will start consuming right on its creation and as long as the
+// given context keeps alive.
+//
+// IMPORTANT: this broker must be used in conjunction with a Codec middleware in
+// order to ensure that the messages are properly encoded and decoded.
+// Otherwise, only binary messages will be accepted when publishing or
+// delivering messages.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		serverPort:       50000,
@@ -48,14 +54,6 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 
 	if opts.serverPort <= 0 {
 		return nil, errors.New("no server port was provided")
-	}
-
-	if opts.encoder == nil {
-		return nil, errors.New("no encoder was provided")
-	}
-
-	if opts.decoder == nil {
-		return nil, errors.New("no decoder was provided")
 	}
 
 	client, err := kubemq.NewEventsClient(ctx,
@@ -92,9 +90,9 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 }
 
 func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) error {
-	body, err := b.options.encoder(m)
-	if err != nil {
-		return err
+	body, isBinary := m.([]byte)
+	if !isBinary {
+		return fmt.Errorf("expecting message to be of type []byte, but got `%T`", m)
 	}
 
 	sum := sha256.Sum256(body)
@@ -108,7 +106,7 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 	return b.sender(event)
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
 		ClientId: b.options.clientID,
@@ -144,7 +142,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber *pu
 	return err
 }
 
-func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -164,8 +162,8 @@ func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
+	out := make(map[pubsub.Topic][]pubsub.Subscriber)
 
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -205,14 +203,9 @@ func (b *broker) Shutdown(_ context.Context) error {
 	return b.client.Close()
 }
 
-func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub *pubsub.Subscriber) error {
-	message, err := b.options.decoder(msg.Body)
-	if err != nil {
-		return err
-	}
-
+func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub pubsub.Subscriber) error {
 	ctx, cancel := context.WithTimeout(b.ctx, b.options.deliverTimeout)
 	defer cancel()
 
-	return sub.Deliver(ctx, topic, message)
+	return sub.Deliver(ctx, topic, msg.Body)
 }

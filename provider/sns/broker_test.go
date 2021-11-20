@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns/types"
 	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/sns"
 	"github.com/stretchr/testify/require"
 )
@@ -52,8 +53,7 @@ func TestSingleBroker(t *testing.T) {
 			subscriptions, err := broker.Subscriptions(ctx)
 			require.NoError(t, err)
 			require.Contains(t, subscriptions, topic)
-			require.Contains(t, subscriptions[topic], sub1)
-			require.Contains(t, subscriptions[topic], sub2)
+			require.Len(t, subscriptions[topic], 2)
 
 			// wait async subscription to take place
 			time.Sleep(time.Second)
@@ -286,17 +286,18 @@ func prepareBroker(
 	}
 
 	queueURL := *qRes.QueueUrl
-	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
-	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-
-	return sns.NewBroker(ctx,
+	broker, err := sns.NewBroker(ctx,
 		sns.WithSNSClient(snsClient),
 		sns.WithSQSClient(sqsClient),
 		sns.WithSQSQueueURL(queueURL),
-		sns.WithEncoder(encoder),
-		sns.WithDecoder(decoder),
 		sns.WithWaitTimeSeconds(1),
 	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return codec.NewCodecMiddleware(broker, codec.JSON), nil
 }
 
 func prepareTopic(ctx context.Context, cli *awssns.Client, topic pubsub.Topic) (string, error) {

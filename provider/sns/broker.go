@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,14 +28,22 @@ type broker struct {
 type subscription struct {
 	arn     string
 	topic   pubsub.Topic
-	handler *pubsub.Subscriber
+	handler pubsub.Subscriber
 }
 
-// NewBroker returns a broker that uses AWS SNS service for pub/sub messaging over a SQS queue.
+// NewBroker returns a broker that uses AWS SNS service for pub/sub messaging
+// over a SQS queue.
 //
-// This broker will start running a background goroutine that will poll the SQS queue for new messages.
-// Topics must be firstly created on AWS SNS before starting this broker, and each Topic must be tagged with the
-// "topic-name" key on AWS. This is used to hold the name of the topic as seen by the broker (`pubsub.Topic` data type).
+// This broker will start running a background goroutine that will poll the SQS
+// queue for new messages. Topics must be firstly created on AWS SNS before
+// starting this broker, and each Topic must be tagged with the "topic-name"
+// key on AWS. This is used to hold the name of the topic as seen by the broker
+// implementation (`pubsub.Topic`).
+//
+// IMPORTANT: this broker must be used in conjunction with a Codec middleware in
+// order to ensure that the messages are properly encoded and decoded.
+// Otherwise, only binary messages will be accepted when publishing or
+// delivering messages.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		deliverTimeout:       3 * time.Second,
@@ -46,14 +55,6 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 
 	for _, o := range option {
 		o.apply(opts)
-	}
-
-	if opts.encoder == nil {
-		return nil, errors.New("no encoder was provided")
-	}
-
-	if opts.decoder == nil {
-		return nil, errors.New("no decoder was provided")
 	}
 
 	if opts.snsClient == nil {
@@ -89,18 +90,18 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+	bytes, isBinary := m.([]byte)
+	if !isBinary {
+		return fmt.Errorf("expecting message to be of type []byte, but got `%T`", m)
+	}
+
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
 		return err
 	}
 
-	message, err := b.options.encoder(m)
-	if err != nil {
-		return err
-	}
-
 	_, err = b.options.snsClient.Publish(ctx, &sns.PublishInput{
-		Message:  aws.String(string(message)),
+		Message:  aws.String(string(bytes)),
 		TopicArn: aws.String(topicARN),
 	})
 
@@ -111,7 +112,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
 		return err
@@ -143,7 +144,7 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber *
 	return nil
 }
 
-func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber *pubsub.Subscriber) error {
+func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -170,8 +171,8 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]*pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]*pubsub.Subscriber)
+func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
+	out := make(map[pubsub.Topic][]pubsub.Subscriber)
 
 	for topic, subs := range b.subs {
 		for _, sub := range subs {
@@ -291,11 +292,7 @@ func (b *broker) handleNotification(sub *subscription, noty sqsNotification) err
 
 	go b.heartbeatMessage(ctx, noty.ReceiptHandle)
 
-	body := []byte(noty.Message)
-	message, err := b.options.decoder(body)
-	if err != nil {
-		return err
-	}
+	message := []byte(noty.Message)
 
 	if dErr := sub.handler.Deliver(ctx, sub.topic, message); dErr != nil {
 		mErr := &multierror.Error{}
@@ -314,7 +311,7 @@ func (b *broker) handleNotification(sub *subscription, noty sqsNotification) err
 		ReceiptHandle: aws.String(noty.ReceiptHandle),
 	}
 
-	if _, err = b.options.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
+	if _, err := b.options.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
 		// There was an error removing the message from the queue, so probably the message
 		// is still in the queue and will receive it again (although we will never know),
 		// so be prepared to process the message again without side effects.

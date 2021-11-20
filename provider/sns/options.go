@@ -13,8 +13,6 @@ type options struct {
 	snsClient            AWSSNSAPI
 	sqsClient            AWSSQSAPI
 	sqsQueueURL          string
-	encoder              Encoder
-	decoder              Decoder
 	deliverTimeout       time.Duration
 	topicsReloadInterval time.Duration
 	maxMessages          int32
@@ -53,26 +51,6 @@ func WithSQSQueueURL(sqsQueueURL string) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.sqsQueueURL = sqsQueueURL
-		},
-	}
-}
-
-// WithEncoder sets the encoder function to be used by broker.
-// Use this to define how messages are encoded before sending to the SNS service.
-func WithEncoder(e Encoder) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.encoder = e
-		},
-	}
-}
-
-// WithDecoder sets the decoder function to be used by broker.
-// Use this to define how messages are decoded after receiving from the SQS service.
-func WithDecoder(d Decoder) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.decoder = d
 		},
 	}
 }
