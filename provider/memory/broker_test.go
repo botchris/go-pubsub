@@ -24,7 +24,7 @@ func BenchmarkPublish(b *testing.B) {
 
 	broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
 
-	s1 := pubsub.NewSubscriber(func(ctx context.Context, m interface{}) error {
+	s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 		return nil
 	})
 
