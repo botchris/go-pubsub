@@ -6,6 +6,7 @@ import "time"
 type Option func(*options)
 
 type options struct {
+	address                string
 	groupID                string
 	logger                 Logger
 	consumerTimeout        time.Duration
@@ -14,6 +15,13 @@ type options struct {
 	janitorConsumerTimeout time.Duration
 	janitorFrequency       time.Duration
 	trimDuration           time.Duration
+}
+
+// WithAddress sets the address of the redis server.
+func WithAddress(address string) Option {
+	return func(o *options) {
+		o.address = address
+	}
 }
 
 // WithGroupID defines a group ID for the broker. Brokers with the same group ID

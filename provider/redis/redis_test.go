@@ -10,7 +10,6 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	redisb "github.com/botchris/go-pubsub/provider/redis"
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,8 +77,9 @@ func prepareBroker(ctx context.Context, t *testing.T, groupID string) pubsub.Bro
 		}
 	}()
 
-	rdb := redis.NewClient(&redis.Options{Addr: s.Addr()})
-	broker := redisb.NewBroker(ctx, rdb, redisb.WithGroupID(groupID))
+	broker, err := redisb.NewBroker(ctx, redisb.WithGroupID(groupID), redisb.WithAddress(s.Addr()))
+	require.NoError(t, err)
+
 	broker = codec.NewCodecMiddleware(broker, codec.JSON)
 
 	return broker

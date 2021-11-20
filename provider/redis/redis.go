@@ -35,8 +35,7 @@ type subscription struct {
 //
 // This implementation is based on go-micro implementation:
 // https://github.com/asim/go-micro
-func NewBroker(ctx context.Context, client *redis.Client, option ...Option) pubsub.Broker {
-	ctx, cancel := context.WithCancel(ctx)
+func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		groupID:                uuid.New(),
 		logger:                 noopLogger{},
@@ -52,6 +51,13 @@ func NewBroker(ctx context.Context, client *redis.Client, option ...Option) pubs
 		o(opts)
 	}
 
+	client := redis.NewClient(&redis.Options{Addr: opts.address})
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("%w: redis connection error", err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+
 	b := &broker{
 		ctx:         ctx,
 		cancel:      cancel,
@@ -63,7 +69,7 @@ func NewBroker(ctx context.Context, client *redis.Client, option ...Option) pubs
 
 	b.runJanitor()
 
-	return b
+	return b, nil
 }
 
 func (r *broker) Publish(ctx context.Context, topic pubsub.Topic, msg interface{}) error {
