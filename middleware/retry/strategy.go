@@ -15,8 +15,9 @@ import (
 //
 // All methods should be goroutine safe.
 type Strategy interface {
-	// Proceed is called before every message is published or delivered to subscriber. If proceed returns a
-	// positive, non-zero integer, the retryer will back off by the provided duration.
+	// Proceed is called before every message is published or delivered to
+	// subscriber. If proceed returns a positive, non-zero integer, the retryer
+	// will back off by the provided duration.
 	//
 	// A message and a topic are provided, they may be ignored.
 	Proceed(topic pubsub.Topic, msg interface{}) time.Duration
@@ -40,8 +41,9 @@ type breakerStrategy struct {
 	mu        sync.Mutex
 }
 
-// NewBreakerStrategy returns a breaker that will backoff after the threshold has been
-// tripped. A Breaker is thread safe and may be shared by many goroutines.
+// NewBreakerStrategy returns a breaker that will backoff after the threshold
+// has been tripped. A Breaker is thread safe and may be shared by many
+// goroutines.
 func NewBreakerStrategy(threshold int, backoff time.Duration) Strategy {
 	return &breakerStrategy{
 		threshold: threshold,
@@ -50,7 +52,7 @@ func NewBreakerStrategy(threshold int, backoff time.Duration) Strategy {
 }
 
 // Proceed checks the failures against the threshold.
-func (b *breakerStrategy) Proceed(topic pubsub.Topic, msg interface{}) time.Duration {
+func (b *breakerStrategy) Proceed(_ pubsub.Topic, _ interface{}) time.Duration {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -62,7 +64,7 @@ func (b *breakerStrategy) Proceed(topic pubsub.Topic, msg interface{}) time.Dura
 }
 
 // Success resets the breaker.
-func (b *breakerStrategy) Success(topic pubsub.Topic, msg interface{}) {
+func (b *breakerStrategy) Success(_ pubsub.Topic, _ interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -71,7 +73,7 @@ func (b *breakerStrategy) Success(topic pubsub.Topic, msg interface{}) {
 }
 
 // Failure records the failure and latest failure time.
-func (b *breakerStrategy) Failure(topic pubsub.Topic, msg interface{}, err error) bool {
+func (b *breakerStrategy) Failure(_ pubsub.Topic, _ interface{}, _ error) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -114,25 +116,25 @@ func NewExponentialBackoff(config ExponentialBackoffConfig) Strategy {
 	}
 }
 
-// exponentialBackoffStrategy implements random backoff with exponentially increasing
-// bounds as the number consecutive failures increase.
+// exponentialBackoffStrategy implements random backoff with exponentially
+// increasing bounds as the number consecutive failures increase.
 type exponentialBackoffStrategy struct {
 	failures uint64 // consecutive failure counter (needs to be 64-bit aligned)
 	config   ExponentialBackoffConfig
 }
 
 // Proceed returns the next randomly bound exponential backoff time.
-func (b *exponentialBackoffStrategy) Proceed(topic pubsub.Topic, msg interface{}) time.Duration {
+func (b *exponentialBackoffStrategy) Proceed(_ pubsub.Topic, _ interface{}) time.Duration {
 	return b.backoff(atomic.LoadUint64(&b.failures))
 }
 
 // Success resets the failures counter.
-func (b *exponentialBackoffStrategy) Success(topic pubsub.Topic, msg interface{}) {
+func (b *exponentialBackoffStrategy) Success(_ pubsub.Topic, _ interface{}) {
 	atomic.StoreUint64(&b.failures, 0)
 }
 
 // Failure increments the failure counter.
-func (b *exponentialBackoffStrategy) Failure(topic pubsub.Topic, msg interface{}, err error) bool {
+func (b *exponentialBackoffStrategy) Failure(_ pubsub.Topic, _ interface{}, _ error) bool {
 	atomic.AddUint64(&b.failures, 1)
 
 	return false

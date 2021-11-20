@@ -10,17 +10,21 @@ import (
 
 type middleware struct {
 	pubsub.Broker
-	publishStrategy    Strategy
-	subscriberStrategy Strategy
+	publishStrategy Strategy
+	deliverStrategy Strategy
 }
 
 // NewRetryMiddleware returns a middleware that retries messages that fail to
 // be published to topics or delivered to subscribers.
-func NewRetryMiddleware(broker pubsub.Broker, p Strategy, s Strategy) pubsub.Broker {
+//
+// Strategies must be configured accordingly, so they can retry as long as
+// operation contexts keeps alive. For instance, when publishing a message, the
+// maximum execution time is determined by the provided context.
+func NewRetryMiddleware(broker pubsub.Broker, publish Strategy, deliver Strategy) pubsub.Broker {
 	return &middleware{
-		Broker:             broker,
-		publishStrategy:    p,
-		subscriberStrategy: s,
+		Broker:          broker,
+		publishStrategy: publish,
+		deliverStrategy: deliver,
 	}
 }
 
@@ -65,7 +69,7 @@ retry:
 func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
 	s := &subscriber{
 		Subscriber: sub,
-		strategy:   mw.subscriberStrategy,
+		strategy:   mw.deliverStrategy,
 	}
 
 	return mw.Broker.Subscribe(ctx, topic, s)
