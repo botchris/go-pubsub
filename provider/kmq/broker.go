@@ -177,18 +177,6 @@ func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Sub
 	return out, nil
 }
 
-func (b *broker) Topics(_ context.Context) ([]pubsub.Topic, error) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	out := make([]pubsub.Topic, 0, len(b.subs))
-	for topic := range b.subs {
-		out = append(out, topic)
-	}
-
-	return out, nil
-}
-
 func (b *broker) Shutdown(_ context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
