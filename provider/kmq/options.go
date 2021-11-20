@@ -14,8 +14,6 @@ type options struct {
 	serverPort       int
 	clientID         string
 	groupID          string
-	encoder          Encoder
-	decoder          Decoder
 	onStreamError    func(error)
 	onSubscribeError func(error)
 	deliverTimeout   time.Duration
@@ -63,26 +61,6 @@ func WithGroupID(groupID string) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.groupID = groupID
-		},
-	}
-}
-
-// WithEncoder sets the encoder function to be used by broker.
-// Use this to define how messages are encoded before sending to the SNS service.
-func WithEncoder(e Encoder) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.encoder = e
-		},
-	}
-}
-
-// WithDecoder sets the decoder function to be used by broker.
-// Use this to define how messages are decoded after receiving from the SQS service.
-func WithDecoder(d Decoder) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.decoder = d
 		},
 	}
 }

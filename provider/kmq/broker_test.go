@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/kmq"
 	"github.com/stretchr/testify/require"
 )
@@ -160,17 +161,18 @@ func TestMultiHostBroker(t *testing.T) {
 }
 
 func prepareBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
-	encoder := func(msg interface{}) ([]byte, error) { return []byte(msg.(string)), nil }
-	decoder := func(data []byte) (interface{}, error) { return string(data), nil }
-
-	return kmq.NewBroker(ctx,
+	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
 		kmq.WithGroupID(groupID),
-		kmq.WithEncoder(encoder),
-		kmq.WithDecoder(decoder),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
 	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return codec.NewCodecMiddleware(broker, codec.JSON), nil
 }
 
 type consumer struct {

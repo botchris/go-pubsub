@@ -6,7 +6,7 @@ import (
 	"github.com/botchris/go-pubsub"
 )
 
-// NewBroker returns a new NO-OP broker instance
+// NewBroker returns a new broker instance that does nothing.
 func NewBroker() pubsub.Broker {
 	return &broker{}
 }
