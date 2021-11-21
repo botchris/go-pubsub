@@ -47,7 +47,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -68,21 +68,6 @@ func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber p
 	}
 
 	return nil
-}
-
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
-	b.RLock()
-	defer b.RUnlock()
-
-	out := make(map[pubsub.Topic][]pubsub.Subscriber)
-
-	for tName, t := range b.topics {
-		for _, s := range t.subscribers {
-			out[tName] = append(out[tName], s)
-		}
-	}
-
-	return out, nil
 }
 
 func (b *broker) Shutdown(_ context.Context) error {

@@ -47,6 +47,7 @@ func WithServerPort(serverPort int) Option {
 }
 
 // WithClientID sets the client ID to be used when registering to KubeMQ server.
+// Required.
 func WithClientID(clientID string) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -55,8 +56,8 @@ func WithClientID(clientID string) Option {
 	}
 }
 
-// WithGroupID sets the group ID for receiving messages.
-// Subscriptions under the same groupID share the messages in a round-robin fashion.
+// WithGroupID sets the group ID for receiving messages. Subscriptions under the
+// same groupID share the messages in a round-robin fashion. Required.
 func WithGroupID(groupID string) Option {
 	return fnOption{
 		f: func(o *options) {

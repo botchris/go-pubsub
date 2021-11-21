@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/provider/util"
 	"github.com/kubemq-io/kubemq-go"
 )
 
@@ -17,14 +18,10 @@ type broker struct {
 	client  *kubemq.EventsClient
 	options *options
 	sender  func(msg *kubemq.Event) error
-	subs    map[pubsub.Topic]map[string]*subscription
-	mu      sync.RWMutex
-}
 
-type subscription struct {
-	cancel     context.CancelFunc
-	topic      pubsub.Topic
-	subscriber pubsub.Subscriber
+	subs    *util.SubscribersCollection
+	streams *streams
+	mu      sync.RWMutex
 }
 
 // NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
@@ -56,6 +53,14 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		return nil, errors.New("no server port was provided")
 	}
 
+	if opts.clientID == "" {
+		return nil, errors.New("no client id was provided")
+	}
+
+	if opts.groupID == "" {
+		return nil, errors.New("no group id was provided")
+	}
+
 	client, err := kubemq.NewEventsClient(ctx,
 		kubemq.WithAddress(opts.serverHost, opts.serverPort),
 		kubemq.WithClientId(opts.clientID),
@@ -83,7 +88,8 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		client:  client,
 		options: opts,
 		sender:  sender,
-		subs:    make(map[pubsub.Topic]map[string]*subscription),
+		subs:    util.NewSubscribersCollection(),
+		streams: newStreams(),
 	}
 
 	return b, nil
@@ -106,94 +112,81 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 	return b.sender(event)
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
 		ClientId: b.options.clientID,
 		Group:    b.options.groupID,
 	}
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	if !b.streams.has(topic) {
+		ctx := b.streams.add(b.ctx, topic)
+		err := b.client.Subscribe(ctx, req, func(msg *kubemq.Event, err error) {
+			if err != nil {
+				b.options.onSubscribeError(err)
 
-	ctx, cancel := context.WithCancel(b.ctx)
-	if _, ok := b.subs[topic]; !ok {
-		b.subs[topic] = make(map[string]*subscription)
-	}
+				return
+			}
 
-	b.subs[topic][subscriber.ID()] = &subscription{
-		cancel:     cancel,
-		topic:      topic,
-		subscriber: subscriber,
-	}
+			if hErr := b.handleRcv(msg, topic); hErr != nil {
+				b.options.onSubscribeError(hErr)
+			}
+		})
 
-	err := b.client.Subscribe(ctx, req, func(msg *kubemq.Event, err error) {
 		if err != nil {
-			b.options.onSubscribeError(err)
-			return
+			return err
 		}
+	}
 
-		if hErr := b.handleRcv(msg, topic, subscriber); hErr != nil {
-			// TODO: monitor error
-			return
-		}
-	})
+	opts := &pubsub.SubscribeOptions{}
+	for _, o := range option {
+		o(opts)
+	}
 
-	return err
+	sub := util.NewSubscription(b.ctx, topic, opts, subscriber)
+	b.subs.Add(sub)
+
+	return nil
 }
 
 func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	subs, ok := b.subs[topic]
-	if !ok {
-		return nil
-	}
+	b.subs.RemoveFromTopic(topic, subscriber.ID())
 
-	sub, ok := subs[subscriber.ID()]
-	if !ok {
-		return nil
+	// no one listening on this topic anymore.
+	if !b.subs.HasTopic(topic) {
+		b.streams.remove(topic)
 	}
-
-	sub.cancel()
-	delete(b.subs[topic], subscriber.ID())
 
 	return nil
 }
 
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]pubsub.Subscriber)
-
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	for topic, subs := range b.subs {
-		for _, sub := range subs {
-			out[topic] = append(out[topic], sub.subscriber)
-		}
-	}
-
-	return out, nil
-}
-
 func (b *broker) Shutdown(_ context.Context) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	for topic, subs := range b.subs {
-		for id, sub := range subs {
-			sub.cancel()
-			delete(b.subs[topic], id)
-		}
-	}
+	b.subs.GracefulStop()
 
 	return b.client.Close()
 }
 
-func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic, sub pubsub.Subscriber) error {
-	ctx, cancel := context.WithTimeout(b.ctx, b.options.deliverTimeout)
-	defer cancel()
+func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic) error {
+	handlers := b.subs.Receptors(topic)
+	if len(handlers) == 0 {
+		return nil
+	}
 
-	return sub.Deliver(ctx, topic, msg.Body)
+	for _, h := range handlers {
+		ctx, cancel := context.WithTimeout(h.Ctx, b.options.deliverTimeout)
+		err := h.Handler.Deliver(ctx, topic, msg.Body)
+		cancel()
+
+		if err != nil {
+			b.options.onSubscribeError(err)
+		}
+	}
+
+	return nil
 }

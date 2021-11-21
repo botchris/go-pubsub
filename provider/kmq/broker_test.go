@@ -9,6 +9,7 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/kmq"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -88,7 +89,7 @@ func TestSingleBroker(t *testing.T) {
 
 	t.Run("GIVEN a broker with two subscribers to a topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker, err := prepareJSONBroker(ctx, clientID, "")
+		broker, err := prepareJSONBroker(ctx, clientID, uuid.New())
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
@@ -102,12 +103,6 @@ func TestSingleBroker(t *testing.T) {
 		sub2 := pubsub.NewSubscriber(consumer2.handle)
 		require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-		require.Contains(t, subscriptions, topic)
-		require.Len(t, subscriptions[topic], 2)
-
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 
@@ -118,6 +113,54 @@ func TestSingleBroker(t *testing.T) {
 			t.Run("THEN subscribers eventually receives the same message", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(msg) && consumer2.received().hasExactlyOnce(msg)
+				}, 3*time.Second, time.Millisecond*100)
+			})
+		})
+	})
+}
+
+func TestQueue(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a broker with two subscriber sharing the same queue", func(t *testing.T) {
+		clientID := "test-client"
+		broker, err := prepareJSONBroker(ctx, clientID, uuid.New())
+		require.NoError(t, err)
+		require.NotNil(t, broker)
+
+		topic := pubsub.Topic("test-topic")
+
+		consumer1 := &consumer{}
+		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		require.NoError(t, broker.Subscribe(ctx, topic, sub1, pubsub.WithQueue("yolo")))
+
+		consumer2 := &consumer{}
+		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		require.NoError(t, broker.Subscribe(ctx, topic, sub2, pubsub.WithQueue("yolo")))
+
+		// wait for server to ack async subscription
+		time.Sleep(time.Second)
+
+		t.Run("WHEN publishing 5 messages to such topic", func(t *testing.T) {
+			send := []string{
+				"test-message-1",
+				"test-message-2",
+				"test-message-3",
+				"test-message-4",
+				"test-message-5",
+			}
+
+			for _, msg := range send {
+				require.NoError(t, broker.Publish(ctx, topic, msg))
+			}
+
+			t.Run("THEN all messages are eventually received sharded across subscribers", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					r1 := consumer1.received()
+					r2 := consumer2.received()
+
+					return r1.merge(r2).hasExactlyOnce(send...)
 				}, 3*time.Second, time.Millisecond*100)
 			})
 		})

@@ -112,7 +112,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
 		return err
@@ -169,18 +169,6 @@ func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber
 	delete(b.subs[topic], subscriber.ID())
 
 	return nil
-}
-
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]pubsub.Subscriber)
-
-	for topic, subs := range b.subs {
-		for _, sub := range subs {
-			out[topic] = append(out[topic], sub.handler)
-		}
-	}
-
-	return out, nil
 }
 
 func (b *broker) Shutdown(ctx context.Context) error {

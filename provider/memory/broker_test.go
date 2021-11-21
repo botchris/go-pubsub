@@ -37,86 +37,6 @@ func BenchmarkPublish(b *testing.B) {
 	b.StopTimer()
 }
 
-func Test_Broker_Subscriptions(t *testing.T) {
-	t.Run("GIVEN an empty broker WHEN subscribing to topic THEN broker register such subscriber", func(t *testing.T) {
-		ctx := context.Background()
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 0)
-
-		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error { return nil })
-		require.NoError(t, broker.Subscribe(ctx, "yolo", s))
-
-		subscriptions, err = broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-	})
-
-	t.Run("GIVEN an empty broker WHEN subscribing to multiple topics THEN broker registers such subscriber", func(t *testing.T) {
-		ctx := context.Background()
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		sub := func(ctx context.Context, t pubsub.Topic, m proto.Message) error { return nil }
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 0)
-
-		s1 := pubsub.NewSubscriber(sub)
-		s2 := pubsub.NewSubscriber(sub)
-
-		require.NoError(t, broker.Subscribe(ctx, "yolo-1", s1))
-		require.NoError(t, broker.Subscribe(ctx, "yolo-2", s2))
-
-		subscriptions, err = broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 2)
-	})
-
-	t.Run("GIVEN an empty broker WHEN subscribing a typed message THEN broker registers such subscriber", func(t *testing.T) {
-		ctx := context.Background()
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 0)
-
-		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *CustomMessage) error { return nil })
-		require.NoError(t, broker.Subscribe(ctx, "yolo-1", s))
-
-		subscriptions, err = broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-	})
-}
-
-func Test_Broker_Unsubscribe(t *testing.T) {
-	t.Run("GIVEN an broker with one topic and one subscriber WHEN unsubscribing THEN broker removes such subscriber", func(t *testing.T) {
-		ctx := context.Background()
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
-		sub := func(ctx context.Context, t pubsub.Topic, m proto.Message) error { return nil }
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 0)
-
-		s1 := pubsub.NewSubscriber(sub)
-		require.NoError(t, broker.Subscribe(ctx, "yolo-1", s1))
-
-		subscriptions, err = broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-		require.Contains(t, subscriptions, pubsub.Topic("yolo-1"))
-
-		require.NoError(t, broker.Unsubscribe(ctx, "yolo-1", s1))
-
-		subscriptions, err = broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 0)
-	})
-}
-
 func Test_Broker_Publish(t *testing.T) {
 	t.Run("GIVEN a broker holding one subscriber WHEN publishing to topic THEN subscriber receives the message", func(t *testing.T) {
 		ctx := context.Background()
@@ -130,11 +50,6 @@ func Test_Broker_Publish(t *testing.T) {
 		})
 
 		require.NoError(t, broker.Subscribe(ctx, topicID, s))
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-
 		require.NoError(t, broker.Publish(ctx, topicID, &CustomMessage{}))
 		require.EqualValues(t, 1, rx.Read())
 	})
@@ -149,17 +64,12 @@ func Test_Broker_Publish(t *testing.T) {
 
 			return nil
 		})
+
 		topicA := pubsub.Topic("yolo-1")
 		topicB := pubsub.Topic("yolo-2")
 
 		require.NoError(t, broker.Subscribe(ctx, topicA, s))
 		require.NoError(t, broker.Subscribe(ctx, topicB, s))
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 2)
-		require.Contains(t, subscriptions, topicA)
-		require.Contains(t, subscriptions, topicB)
 
 		require.NoError(t, broker.Publish(ctx, topicA, &DummyMessage{}))
 		require.EqualValues(t, 1, rx.Read())
@@ -176,14 +86,9 @@ func Test_Broker_Publish(t *testing.T) {
 		})
 
 		topics := []pubsub.Topic{"yolo-1", "yolo-2"}
+
 		require.NoError(t, broker.Subscribe(ctx, topics[0], s))
 		require.NoError(t, broker.Subscribe(ctx, topics[1], s))
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 2)
-		require.Contains(t, subscriptions, topics[0])
-		require.Contains(t, subscriptions, topics[1])
 
 		require.NoError(t, broker.Publish(ctx, topics[0], &DummyMessage{}))
 		require.NoError(t, broker.Publish(ctx, topics[1], &DummyMessage{}))
@@ -202,10 +107,6 @@ func Test_Broker_Publish(t *testing.T) {
 
 		topic := pubsub.Topic("yolo-1")
 		require.NoError(t, broker.Subscribe(ctx, topic, s))
-
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
 
 		require.NoError(t, broker.Publish(ctx, topic, &CustomMessage{}))
 		require.EqualValues(t, 1, rx.Read())
@@ -227,10 +128,6 @@ func Test_Broker_Publish(t *testing.T) {
 		topic := pubsub.Topic("yolo-1")
 		require.NoError(t, broker.Subscribe(ctx, topic, s))
 
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-
 		toSend := map[string]string{
 			"key": "value",
 		}
@@ -251,12 +148,10 @@ func Test_Broker_Publish(t *testing.T) {
 
 			return nil
 		})
+
 		topic := pubsub.Topic("yolo-1")
 
 		require.NoError(t, broker.Subscribe(ctx, topic, s))
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
 
 		require.NoError(t, broker.Publish(ctx, topic, &CustomMessage{}))
 		require.EqualValues(t, 1, rx.Read())
@@ -277,9 +172,6 @@ func Test_Broker_Publish(t *testing.T) {
 		topic := pubsub.Topic("yolo-1")
 
 		require.NoError(t, broker.Subscribe(ctx, topic, s))
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
 
 		require.NoError(t, broker.Publish(ctx, topic, &CustomMessage{}))
 		require.EqualValues(t, 0, rx.Read())
@@ -300,9 +192,6 @@ func Test_Broker_Publish(t *testing.T) {
 		topic := pubsub.Topic("yolo-1")
 
 		require.NoError(t, broker.Subscribe(ctx, topic, s))
-		subscriptions, err := broker.Subscriptions(ctx)
-		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
 
 		require.NoError(t, broker.Publish(ctx, topic, &CustomMessage{}))
 		require.EqualValues(t, 1, errors.Read())
