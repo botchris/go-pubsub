@@ -8,3 +8,48 @@ type Subscription interface {
 	Unsubscribe() error
 	Handler() Handler
 }
+
+type subscription struct {
+	id      string
+	topic   Topic
+	options SubscribeOptions
+	unsub   func() error
+	handler Handler
+}
+
+// NewSubscription creates a new subscription.
+func NewSubscription(id string, topic Topic, handler Handler, unsub func() error, options SubscribeOptions) Subscription {
+	if unsub == nil {
+		unsub = func() error {
+			return nil
+		}
+	}
+
+	return &subscription{
+		id:      id,
+		topic:   topic,
+		options: options,
+		unsub:   unsub,
+		handler: handler,
+	}
+}
+
+func (s *subscription) ID() string {
+	return s.id
+}
+
+func (s *subscription) Options() SubscribeOptions {
+	return s.options
+}
+
+func (s *subscription) Topic() Topic {
+	return s.topic
+}
+
+func (s *subscription) Unsubscribe() error {
+	return s.unsub()
+}
+
+func (s *subscription) Handler() Handler {
+	return s.handler
+}

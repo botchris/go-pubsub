@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/provider/util"
 	"github.com/go-redis/redis/v8"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
@@ -20,14 +21,8 @@ type broker struct {
 	options     *options
 	redisClient *redis.Client
 	attempts    map[string]int
-	subs        map[pubsub.Topic]map[string]*subscription
+	subs        map[pubsub.Topic]map[string]util.StoppableSubscription
 	mu          sync.RWMutex
-}
-
-type subscription struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
-	subscriber pubsub.Subscriber
 }
 
 // NewBroker builds a new broker that uses redis streams as exchange mechanism.
@@ -63,7 +58,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		options:     opts,
 		redisClient: client,
 		attempts:    make(map[string]int),
-		subs:        make(map[pubsub.Topic]map[string]*subscription),
+		subs:        make(map[pubsub.Topic]map[string]util.StoppableSubscription),
 	}
 
 	b.runJanitor()
@@ -83,47 +78,52 @@ func (r *broker) Publish(ctx context.Context, topic pubsub.Topic, msg interface{
 	}).Err()
 }
 
-func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
+func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	ctx, cancel := context.WithCancel(r.ctx)
 	if _, ok := r.subs[topic]; !ok {
-		r.subs[topic] = make(map[string]*subscription)
+		r.subs[topic] = make(map[string]util.StoppableSubscription)
 	}
 
-	r.subs[topic][subscriber.ID()] = &subscription{
-		ctx:        ctx,
-		cancel:     cancel,
-		subscriber: subscriber,
+	sid := uuid.New()
+	unsub := func() error {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		subs, ok := r.subs[topic]
+		if !ok {
+			return nil
+		}
+
+		sub, ok := subs[sid]
+		if !ok {
+			return nil
+		}
+
+		sub.Stop()
+		delete(r.subs[topic], sid)
+
+		return nil
 	}
 
-	err := r.consume(topic, r.subs[topic][subscriber.ID()])
+	opts := pubsub.DefaultSubscribeOptions()
+	for _, o := range option {
+		o(opts)
+	}
+
+	sub, err := util.NewStoppableSubscription(r.ctx, sid, topic, handler, unsub, *opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
-}
+	r.subs[topic][sid] = sub
 
-func (r *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	subs, ok := r.subs[topic]
-	if !ok {
-		return nil
+	if err := r.consume(topic, r.subs[topic][sid]); err != nil {
+		return nil, err
 	}
 
-	sub, ok := subs[subscriber.ID()]
-	if !ok {
-		return nil
-	}
-
-	sub.cancel()
-	delete(r.subs[topic], subscriber.ID())
-
-	return nil
+	return sub, nil
 }
 
 func (r *broker) Shutdown(_ context.Context) error {
@@ -132,12 +132,12 @@ func (r *broker) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
+func (r *broker) consume(t pubsub.Topic, sub util.StoppableSubscription) error {
 	topic := fmt.Sprintf("stream-%s", t)
 	lastRead := "$"
 
 	cErr := callWithRetry(func() error {
-		return r.redisClient.XGroupCreateMkStream(sub.ctx, topic, r.options.groupID, lastRead).Err()
+		return r.redisClient.XGroupCreateMkStream(sub.Context(), topic, r.options.groupID, lastRead).Err()
 	}, 2)
 
 	if cErr != nil {
@@ -154,7 +154,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 
 			// try to clean up the consumer
 			err := callWithRetry(func() error {
-				return r.redisClient.XGroupDelConsumer(sub.ctx, topic, r.options.groupID, consumerName).Err()
+				return r.redisClient.XGroupDelConsumer(sub.Context(), topic, r.options.groupID, consumerName).Err()
 			}, 2)
 
 			if err != nil {
@@ -163,7 +163,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 		}()
 
 		start := "-"
-		done := sub.ctx.Done()
+		done := sub.Context().Done()
 
 		for {
 			select {
@@ -176,7 +176,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 			var pendingCmd *redis.XPendingExtCmd
 
 			err := callWithRetry(func() error {
-				pendingCmd = r.redisClient.XPendingExt(sub.ctx, &redis.XPendingExtArgs{
+				pendingCmd = r.redisClient.XPendingExt(sub.Context(), &redis.XPendingExtArgs{
 					Stream: topic,
 					Group:  r.options.groupID,
 					Start:  start,
@@ -205,7 +205,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 
 			var claimCmd *redis.XMessageSliceCmd
 			err = callWithRetry(func() error {
-				claimCmd = r.redisClient.XClaim(sub.ctx, &redis.XClaimArgs{
+				claimCmd = r.redisClient.XClaim(sub.Context(), &redis.XClaimArgs{
 					Stream:   topic,
 					Group:    r.options.groupID,
 					Consumer: consumerName,
@@ -243,7 +243,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 			default:
 			}
 
-			res := r.redisClient.XReadGroup(sub.ctx, &redis.XReadGroupArgs{
+			res := r.redisClient.XReadGroup(sub.Context(), &redis.XReadGroupArgs{
 				Group:    r.options.groupID,
 				Consumer: consumerName,
 				Streams:  []string{topic, ">"},
@@ -279,7 +279,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 	return nil
 }
 
-func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pubsub.Topic, retryLimit int) error {
+func (r *broker) processMessages(msgs []redis.XMessage, sub util.StoppableSubscription, t pubsub.Topic, retryLimit int) error {
 	topic := streamName(t)
 
 	for _, v := range msgs {
@@ -289,7 +289,7 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 		bStr, ok := evBytes.(string)
 		if !ok {
 			r.options.logger.Warnf("Failed to convert to bytes, discarding %s", vid)
-			r.redisClient.XAck(sub.ctx, topic, r.options.groupID, vid)
+			r.redisClient.XAck(sub.Context(), topic, r.options.groupID, vid)
 			continue
 		}
 
@@ -300,8 +300,8 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 		r.attempts[attemptsKey], _ = strconv.Atoi(v.Values["attempt"].(string))
 		r.mu.Unlock()
 
-		dCtx, cancel := context.WithTimeout(sub.ctx, r.options.deliverTimeout)
-		dErr := sub.subscriber.Deliver(dCtx, t, ev)
+		dCtx, cancel := context.WithTimeout(sub.Context(), r.options.deliverTimeout)
+		dErr := sub.Handler().Deliver(dCtx, t, ev)
 		cancel()
 
 		ack := func() error {
@@ -309,12 +309,12 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 			delete(r.attempts, attemptsKey)
 			r.mu.Unlock()
 
-			return r.redisClient.XAck(sub.ctx, topic, r.options.groupID, vid).Err()
+			return r.redisClient.XAck(sub.Context(), topic, r.options.groupID, vid).Err()
 		}
 
 		nack := func() error {
 			// no way to nack a message. Best you can do is to ack and readd
-			if err := r.redisClient.XAck(sub.ctx, topic, r.options.groupID, vid).Err(); err != nil {
+			if err := r.redisClient.XAck(sub.Context(), topic, r.options.groupID, vid).Err(); err != nil {
 				return err
 			}
 
@@ -331,7 +331,7 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 				return nil
 			}
 
-			return r.redisClient.XAdd(sub.ctx,
+			return r.redisClient.XAdd(sub.Context(),
 				&redis.XAddArgs{
 					Stream: topic,
 					Values: map[string]interface{}{

@@ -93,9 +93,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
-		sub := pubsub.NewHandler(handler)
 
-		require.NoError(t, broker.Subscribe(ctx, topic, sub))
+		h1 := pubsub.NewHandler(handler)
+		_, err := broker.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
 			err := broker.Publish(ctx, topic, "message")
@@ -124,9 +125,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
-		sub := pubsub.NewHandler(handler)
 
-		require.NoError(t, broker.Subscribe(ctx, topic, sub))
+		h1 := pubsub.NewHandler(handler)
+		_, err := broker.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
 			err := broker.Publish(ctx, topic, "message")

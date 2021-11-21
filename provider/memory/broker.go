@@ -52,31 +52,27 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 	b.Lock()
 	defer b.Unlock()
 
-	opts := pubsub.NewSubscribeOptions()
+	opts := pubsub.DefaultSubscribeOptions()
 	for _, o := range option {
 		o(opts)
 	}
 
 	sid := uuid.New()
-	sub := &subscription{
-		id:      sid,
-		topic:   topic,
-		handler: handler,
-		options: *opts,
-		unsub: func() error {
-			b.Lock()
-			defer b.Unlock()
+	unsub := func() error {
+		b.Lock()
+		defer b.Unlock()
 
-			t := b.openTopic(topic)
-			t.unsubscribe(sid)
+		t := b.openTopic(topic)
+		t.unsubscribe(sid)
 
-			if t.size() == 0 {
-				delete(b.topics, topic)
-			}
+		if t.size() == 0 {
+			delete(b.topics, topic)
+		}
 
-			return nil
-		},
+		return nil
 	}
+
+	sub := pubsub.NewSubscription(sid, topic, handler, unsub, *opts)
 
 	b.openTopic(topic).subscribe(sub)
 

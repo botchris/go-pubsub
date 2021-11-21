@@ -10,13 +10,13 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-type subscriber struct {
+type handler struct {
 	pubsub.Handler
 	codec Codec
 	cache *lru.Cache
 }
 
-func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	bytes, ok := m.([]byte)
 	if !ok {
 		return fmt.Errorf("delivery failure: expecting message to be of type []byte, but got `%T`", m)
@@ -44,7 +44,7 @@ func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interfac
 
 // decodeFor attempts to dynamically decode a raw message for provided
 // subscriber using the given decoder function.
-func (s *subscriber) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
+func (s *handler) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
 	base := mType
 
 	if mKind == reflect.Ptr {

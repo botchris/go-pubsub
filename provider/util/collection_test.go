@@ -98,10 +98,10 @@ func TestSubscriptionsCollection(t *testing.T) {
 }
 
 func dummySubscription(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (util.StoppableSubscription, error) {
-	opts := pubsub.NewSubscribeOptions()
+	opts := pubsub.DefaultSubscribeOptions()
 	for _, o := range option {
 		o(opts)
 	}
 
-	return util.NewSubscription(ctx, uuid.New(), topic, handler, func() error { return nil }, *opts)
+	return util.NewStoppableSubscription(ctx, uuid.New(), topic, handler, func() error { return nil }, *opts)
 }

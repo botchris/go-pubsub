@@ -15,8 +15,8 @@ type SubscribeOptions struct {
 	Metadata map[string]interface{}
 }
 
-// NewSubscribeOptions builds a new SubscribeOptions.
-func NewSubscribeOptions() *SubscribeOptions {
+// DefaultSubscribeOptions builds a new SubscribeOptions.
+func DefaultSubscribeOptions() *SubscribeOptions {
 	return &SubscribeOptions{
 		AutoAck:  true,
 		Metadata: make(map[string]interface{}),

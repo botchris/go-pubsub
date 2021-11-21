@@ -10,7 +10,7 @@ import (
 // topic defines a in-memory topic to which subscriber may subscribe to
 type topic struct {
 	id          pubsub.Topic
-	subscribers map[string]*subscription
+	subscribers map[string]pubsub.Subscription
 	sync.RWMutex
 }
 
@@ -23,7 +23,7 @@ type publishResult struct {
 func newTopic(id pubsub.Topic) *topic {
 	return &topic{
 		id:          id,
-		subscribers: map[string]*subscription{},
+		subscribers: map[string]pubsub.Subscription{},
 	}
 }
 
@@ -41,7 +41,7 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 			err:        nil,
 		}
 
-		if err := subscriber.handler.Deliver(ctx, t.id, m); err != nil {
+		if err := subscriber.Handler().Deliver(ctx, t.id, m); err != nil {
 			result.err = err
 		}
 
@@ -59,7 +59,7 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 }
 
 // subscribe attaches to this topic the given subscriber, attaching multiple times the same subscriber has no effects.
-func (t *topic) subscribe(s *subscription) {
+func (t *topic) subscribe(s pubsub.Subscription) {
 	t.Lock()
 	defer t.Unlock()
 

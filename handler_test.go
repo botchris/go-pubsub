@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Subscriber(t *testing.T) {
+func TestHandler(t *testing.T) {
 	tests := []struct {
 		name        string
 		handlerFunc interface{}

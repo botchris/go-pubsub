@@ -29,20 +29,25 @@ func TestNewBroker(t *testing.T) {
 		q1 := &queue{}
 		q2 := &queue{}
 
-		sub1 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
+		h1 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
 			q1.add(m.(string))
 
 			return nil
 		})
 
-		sub2 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
+		h2 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
 			q2.add(m.(string))
 
 			return nil
 		})
 
-		require.NoError(t, broker.Subscribe(ctx, "test", sub1))
-		require.NoError(t, broker.Subscribe(ctx, "test", sub2))
+		_, err := broker.Subscribe(ctx, "test", h1)
+		require.NoError(t, err)
+
+		_, err = broker.Subscribe(ctx, "test", h2)
+		require.NoError(t, err)
+
+		// wait for redis server to be ready
 		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing three messages", func(t *testing.T) {

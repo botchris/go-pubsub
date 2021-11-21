@@ -56,15 +56,16 @@ func TestSubscribeInterceptor(t *testing.T) {
 		}
 
 		broker = recovery.NewRecoveryMiddleware(broker, rec)
-
 		subCalls := 0
-		sub := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, p string) error {
+
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, p string) error {
 			subCalls++
 
 			panic("subscriber panic")
 		})
 
-		require.NoError(t, broker.Subscribe(ctx, "test", sub))
+		_, err := broker.Subscribe(ctx, "test", h1)
+		require.NoError(t, err)
 
 		t.Run("WHEN subscriber panics", func(t *testing.T) {
 			var err error

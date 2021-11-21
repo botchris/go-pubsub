@@ -110,7 +110,7 @@ func TestSingleBroker(t *testing.T) {
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 
-		t.Run("WHEN publishing two  messages to topic", func(t *testing.T) {
+		t.Run("WHEN publishing two messages to topic", func(t *testing.T) {
 			msgs := []string{
 				"message 1",
 				"message 2",

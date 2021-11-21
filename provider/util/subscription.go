@@ -26,8 +26,7 @@ type StoppableSubscription interface {
 // Subscription convenience definition used to represent a subscription within
 // a broker implementation.
 type subscription struct {
-	// id uniquely identifies the subscription within the broker.
-	id string
+	pubsub.Subscription
 
 	// ctx controls the life cycle of the subscription. This is usually mapped
 	// to broker's internal context. This allows to implement graceful shutdown
@@ -38,18 +37,6 @@ type subscription struct {
 	// by the broker during graceful shutdown or during unsubscription
 	// operations.
 	stop context.CancelFunc
-
-	// topic is the topic the subscription is listening to.
-	topic pubsub.Topic
-
-	// options are the options used to create the subscription.
-	options pubsub.SubscribeOptions
-
-	// handler is the handler to be called when a message is received.
-	handler pubsub.Handler
-
-	// unsubscribe encapsulates the logic to unsubscribe this subscription.
-	unsubscriber func() error
 }
 
 func (s *subscription) Context() context.Context {
@@ -60,29 +47,9 @@ func (s *subscription) Stop() {
 	s.stop()
 }
 
-func (s *subscription) ID() string {
-	return s.id
-}
-
-func (s *subscription) Options() pubsub.SubscribeOptions {
-	return s.options
-}
-
-func (s *subscription) Topic() pubsub.Topic {
-	return s.topic
-}
-
-func (s *subscription) Unsubscribe() error {
-	return s.unsubscriber()
-}
-
-func (s *subscription) Handler() pubsub.Handler {
-	return s.handler
-}
-
-// NewSubscription builds a new subscription. Given context should be the
-// broker's internal context, this allows to implement graceful shutdown.
-func NewSubscription(
+// NewStoppableSubscription builds a new stoppable subscription. Given context
+// should be the broker's internal context, this allows to implement graceful shutdown.
+func NewStoppableSubscription(
 	ctx context.Context,
 	id string,
 	topic pubsub.Topic,
@@ -102,15 +69,12 @@ func NewSubscription(
 		return nil, errors.New("subscription handler cannot be nil")
 	}
 
+	parent := pubsub.NewSubscription(id, topic, handler, unsubscriber, options)
 	ctx, cancel := context.WithCancel(ctx)
 
 	return &subscription{
 		ctx:          ctx,
-		id:           id,
 		stop:         cancel,
-		topic:        topic,
-		options:      options,
-		handler:      handler,
-		unsubscriber: unsubscriber,
+		Subscription: parent,
 	}, nil
 }
