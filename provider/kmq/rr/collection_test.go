@@ -75,10 +75,10 @@ func TestSubscriptionsCollection(t *testing.T) {
 		h1 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 		h2 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
-		s1, err := dummySubscription(ctx, topic, h1, pubsub.WithQueue("q1"))
+		s1, err := dummySubscription(ctx, topic, h1, pubsub.WithGroup("q1"))
 		require.NoError(t, err)
 
-		s2, err := dummySubscription(ctx, topic, h2, pubsub.WithQueue("q1"))
+		s2, err := dummySubscription(ctx, topic, h2, pubsub.WithGroup("q1"))
 		require.NoError(t, err)
 
 		collection.Add(s1)

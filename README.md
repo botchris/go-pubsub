@@ -49,6 +49,29 @@ The `go-pubsub` package comes with a set of built-in providers:
 - `sns`: a Broker that uses AWS SNS and AWS SQS.
 - `kmq`: a KubeMQ implementation of the Broker interface.
 
+### Creating your own provider
+
+This packages moves around the `Broker` interface definition, which is the 
+central piece for dealing with PubSub systems:
+
+```go
+// Broker defines the interface for a pub/sub broker.
+type Broker interface {
+	// Publish the given message on the given topic.
+	Publish(ctx context.Context, topic Topic, m interface{}) error
+
+	// Subscribe attaches the given handler to the given topic.
+	// The same handler could be attached multiple times to the same topic.
+	Subscribe(ctx context.Context, topic Topic, subscriber Handler, option ...SubscribeOption) (Subscription, error)
+
+	// Shutdown gracefully shutdowns all subscriptions.
+	Shutdown(ctx context.Context) error
+}
+```
+
+Creating your own provider is as simple as implementing the Broker interface 
+described above.
+
 ## Middleware
 
 A middleware acts as a wrapper for a Broker implementation. It can be used 

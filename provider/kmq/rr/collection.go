@@ -34,7 +34,7 @@ func (s *SubscriptionsCollection) Add(subscription pubsub.StoppableSubscription)
 	defer s.mu.Unlock()
 
 	topic := subscription.Topic()
-	q := subscription.Options().Queue
+	q := subscription.Options().Group
 
 	if q == "" {
 		if _, ok := s.wildcard[topic]; !ok {
@@ -54,7 +54,7 @@ func (s *SubscriptionsCollection) Add(subscription pubsub.StoppableSubscription)
 		s.byQueue[topic] = make(map[queueName]*queue)
 	}
 
-	if _, ok := s.byQueue[topic][queueName(subscription.Options().Queue)]; !ok {
+	if _, ok := s.byQueue[topic][queueName(subscription.Options().Group)]; !ok {
 		s.byQueue[topic][queueName(q)] = newQueue(q)
 	}
 

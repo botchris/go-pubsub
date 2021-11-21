@@ -1,15 +1,26 @@
 package pubsub
 
-// Subscription represents a handler subscribed to a topic
+// Subscription represents a Handler subscribed to a topic.
 type Subscription interface {
+	// ID uniquely identifies the subscription. UUID algorithm, or similar, is
+	// recommended.
 	ID() string
+
+	// Options returns the options used to create the subscription.
 	Options() SubscribeOptions
+
+	// Topic returns the topic the subscription is subscribed to.
 	Topic() Topic
+
+	// Unsubscribe unsubscribes.
 	Unsubscribe() error
+
+	// Handler returns the Handler this subscription will use to handle messages.
 	Handler() Handler
 }
 
-// UnsubscribeFunc represents a function responsible for unsubscribing.
+// UnsubscribeFunc represents a function responsible for unsubscribing a
+// subscription.
 type UnsubscribeFunc func() error
 
 type subscription struct {

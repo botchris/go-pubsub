@@ -1,14 +1,14 @@
 package pubsub
 
-// SubscribeOptions describes the options for a subscription.
+// SubscribeOptions describes the options for a subscription action.
 type SubscribeOptions struct {
+	// Group subscribers with the same group name will create a shared
+	// subscription where each one receives a subset of the published messages.
+	Group string
+
 	// AutoAck defaults to true. When a handler returns with a nil error the
 	/// message is acked.
 	AutoAck bool
-
-	// Queue subscribers with the same queue name will create a shared subscription
-	// where each receives a subset of messages.
-	Queue string
 
 	// Metadata other options for implementations of the Broker interface
 	// can be stored as metadata.
@@ -23,21 +23,21 @@ func DefaultSubscribeOptions() *SubscribeOptions {
 	}
 }
 
-// SubscribeOption is a function that configures SubscribeOptions.
+// SubscribeOption is a function that configures a SubscribeOptions instance.
 type SubscribeOption func(*SubscribeOptions)
-
-// WithQueue sets the name of the queue to share messages on.
-func WithQueue(name string) SubscribeOption {
-	return func(o *SubscribeOptions) {
-		o.Queue = name
-	}
-}
 
 // DisableAutoAck will disable auto acking of messages after they have been
 // handled.
 func DisableAutoAck() SubscribeOption {
 	return func(o *SubscribeOptions) {
 		o.AutoAck = false
+	}
+}
+
+// WithGroup sets the name of the group to share messages on.
+func WithGroup(name string) SubscribeOption {
+	return func(o *SubscribeOptions) {
+		o.Group = name
 	}
 }
 

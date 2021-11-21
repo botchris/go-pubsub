@@ -98,15 +98,15 @@ func TestSingleBroker(t *testing.T) {
 
 		consumer1 := &consumer{}
 		h1 := pubsub.NewHandler(consumer1.handle)
-		s1, err := broker.Subscribe(ctx, topic, h1, pubsub.WithQueue("g1"))
+		s1, err := broker.Subscribe(ctx, topic, h1, pubsub.WithGroup("g1"))
 		require.NoError(t, err)
-		require.EqualValues(t, "g1", s1.Options().Queue)
+		require.EqualValues(t, "g1", s1.Options().Group)
 
 		consumer2 := &consumer{}
 		h2 := pubsub.NewHandler(consumer2.handle)
-		s2, err := broker.Subscribe(ctx, topic, h2, pubsub.WithQueue("g2"))
+		s2, err := broker.Subscribe(ctx, topic, h2, pubsub.WithGroup("g2"))
 		require.NoError(t, err)
-		require.EqualValues(t, "g2", s2.Options().Queue)
+		require.EqualValues(t, "g2", s2.Options().Group)
 
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
@@ -146,12 +146,12 @@ func TestQueue(t *testing.T) {
 
 		consumer1 := &consumer{}
 		h1 := pubsub.NewHandler(consumer1.handle)
-		_, err = broker.Subscribe(ctx, topic, h1, pubsub.WithQueue(gid))
+		_, err = broker.Subscribe(ctx, topic, h1, pubsub.WithGroup(gid))
 		require.NoError(t, err)
 
 		consumer2 := &consumer{}
 		h2 := pubsub.NewHandler(consumer2.handle)
-		_, err = broker.Subscribe(ctx, topic, h2, pubsub.WithQueue(gid))
+		_, err = broker.Subscribe(ctx, topic, h2, pubsub.WithGroup(gid))
 		require.NoError(t, err)
 
 		// wait for server to ack async subscription
