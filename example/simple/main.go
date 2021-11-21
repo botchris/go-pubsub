@@ -9,9 +9,9 @@ import (
 	"github.com/botchris/go-pubsub/provider/memory"
 )
 
-var Topic pubsub.Topic = "my-topic"
+var myTopic pubsub.Topic = "my-topic"
 
-type MyMessage struct {
+type myMessage struct {
 	Body string
 }
 
@@ -21,58 +21,64 @@ func main() {
 
 	broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 
-	s1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
+	h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m myMessage) error {
 		fmt.Printf("%s -> %+v -> [s1]\n", t, m)
 
 		return nil
 	})
 
-	s2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
+	h2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m *myMessage) error {
 		fmt.Printf("%s -> %+v -> [s2]\n", t, m)
 
 		return nil
 	})
 
-	s3 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
+	h3 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
 		fmt.Printf("%s -> %+v -> [s3]\n", t, m)
 
 		return nil
 	})
 
 	// subscribe
+	var s1 pubsub.Subscription
 	{
-		if err := broker.Subscribe(ctx, Topic, s1); err != nil {
+		s1l, err := broker.Subscribe(ctx, myTopic, h1)
+		if err != nil {
 			panic(err)
 		}
 
-		if err := broker.Subscribe(ctx, Topic, s2); err != nil {
-			panic(err)
+		s1 = s1l
+
+		if _, sErr := broker.Subscribe(ctx, myTopic, h2); sErr != nil {
+			panic(sErr)
 		}
 
-		if err := broker.Subscribe(ctx, Topic, s3); err != nil {
-			panic(err)
+		if _, sErr := broker.Subscribe(ctx, myTopic, h3); sErr != nil {
+			panic(sErr)
 		}
 	}
 
 	// publish
 	{
-		if err := broker.Publish(ctx, Topic, MyMessage{Body: "value(hello world)"}); err != nil {
+		if err := broker.Publish(ctx, myTopic, myMessage{Body: "value(hello world)"}); err != nil {
 			panic(err)
 		}
 
-		if err := broker.Publish(ctx, Topic, &MyMessage{Body: "pointer(hello world)"}); err != nil {
+		if err := broker.Publish(ctx, myTopic, &myMessage{Body: "pointer(hello world)"}); err != nil {
 			panic(err)
 		}
 
-		if err := broker.Publish(ctx, Topic, "string(hello world)"); err != nil {
+		if err := broker.Publish(ctx, myTopic, "string(hello world)"); err != nil {
 			panic(err)
 		}
 
-		if err := broker.Unsubscribe(ctx, Topic, s1); err != nil {
+		// unsubscribe S1
+		if err := s1.Unsubscribe(); err != nil {
 			panic(err)
 		}
 
-		if err := broker.Publish(ctx, Topic, MyMessage{Body: "value(hello world)"}); err != nil {
+		// this will noop
+		if err := broker.Publish(ctx, myTopic, myMessage{Body: "value(hello world)"}); err != nil {
 			panic(err)
 		}
 	}
@@ -81,5 +87,5 @@ func main() {
 	//  {Body:value(hello world)} -> my-topic -> [s1]
 	//  &{Body:pointer(hello world)} -> my-topic -> [s2]
 	//  string(hello world) -> my-topic -> [s3]
-	//  <nothing>
+	// <nothing>
 }

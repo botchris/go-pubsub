@@ -1,15 +1,16 @@
-package util
+package pubsub
 
 import (
 	"context"
 	"errors"
-
-	"github.com/botchris/go-pubsub"
 )
 
 // StoppableSubscription represents a subscription that can be stopped.
+//
+// Generally used by brokers implementations that relies on background running
+// goroutines for handling subscriptions and message receptions from services
 type StoppableSubscription interface {
-	pubsub.Subscription
+	Subscription
 
 	// Context returns the internal context of this subscription which controls
 	// its life cycle. This is usually branched from broker's internal context,
@@ -25,8 +26,8 @@ type StoppableSubscription interface {
 
 // Subscription convenience definition used to represent a subscription within
 // a broker implementation.
-type subscription struct {
-	pubsub.Subscription
+type stoppable struct {
+	Subscription
 
 	// ctx controls the life cycle of the subscription. This is usually mapped
 	// to broker's internal context. This allows to implement graceful shutdown
@@ -39,11 +40,11 @@ type subscription struct {
 	stop context.CancelFunc
 }
 
-func (s *subscription) Context() context.Context {
+func (s *stoppable) Context() context.Context {
 	return s.ctx
 }
 
-func (s *subscription) Stop() {
+func (s *stoppable) Stop() {
 	s.stop()
 }
 
@@ -52,10 +53,10 @@ func (s *subscription) Stop() {
 func NewStoppableSubscription(
 	ctx context.Context,
 	id string,
-	topic pubsub.Topic,
-	handler pubsub.Handler,
-	unsubscriber func() error,
-	options pubsub.SubscribeOptions,
+	topic Topic,
+	handler Handler,
+	unsubscriber UnsubscribeFunc,
+	options SubscribeOptions,
 ) (StoppableSubscription, error) {
 	if ctx == nil {
 		return nil, errors.New("subscription context cannot be nil")
@@ -69,10 +70,10 @@ func NewStoppableSubscription(
 		return nil, errors.New("subscription handler cannot be nil")
 	}
 
-	parent := pubsub.NewSubscription(id, topic, handler, unsubscriber, options)
+	parent := NewSubscription(id, topic, handler, unsubscriber, options)
 	ctx, cancel := context.WithCancel(ctx)
 
-	return &subscription{
+	return &stoppable{
 		ctx:          ctx,
 		stop:         cancel,
 		Subscription: parent,

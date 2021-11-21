@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
-	"github.com/botchris/go-pubsub/provider/util"
 	"github.com/go-redis/redis/v8"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
@@ -21,7 +20,7 @@ type broker struct {
 	options     *options
 	redisClient *redis.Client
 	attempts    map[string]int
-	subs        map[pubsub.Topic]map[string]util.StoppableSubscription
+	subs        map[pubsub.Topic]map[string]pubsub.StoppableSubscription
 	mu          sync.RWMutex
 }
 
@@ -58,7 +57,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		options:     opts,
 		redisClient: client,
 		attempts:    make(map[string]int),
-		subs:        make(map[pubsub.Topic]map[string]util.StoppableSubscription),
+		subs:        make(map[pubsub.Topic]map[string]pubsub.StoppableSubscription),
 	}
 
 	b.runJanitor()
@@ -83,7 +82,7 @@ func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 	defer r.mu.Unlock()
 
 	if _, ok := r.subs[topic]; !ok {
-		r.subs[topic] = make(map[string]util.StoppableSubscription)
+		r.subs[topic] = make(map[string]pubsub.StoppableSubscription)
 	}
 
 	sid := uuid.New()
@@ -112,7 +111,7 @@ func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		o(opts)
 	}
 
-	sub, err := util.NewStoppableSubscription(r.ctx, sid, topic, handler, unsub, *opts)
+	sub, err := pubsub.NewStoppableSubscription(r.ctx, sid, topic, handler, unsub, *opts)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +131,7 @@ func (r *broker) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (r *broker) consume(t pubsub.Topic, sub util.StoppableSubscription) error {
+func (r *broker) consume(t pubsub.Topic, sub pubsub.StoppableSubscription) error {
 	topic := fmt.Sprintf("stream-%s", t)
 	lastRead := "$"
 
@@ -279,7 +278,7 @@ func (r *broker) consume(t pubsub.Topic, sub util.StoppableSubscription) error {
 	return nil
 }
 
-func (r *broker) processMessages(msgs []redis.XMessage, sub util.StoppableSubscription, t pubsub.Topic, retryLimit int) error {
+func (r *broker) processMessages(msgs []redis.XMessage, sub pubsub.StoppableSubscription, t pubsub.Topic, retryLimit int) error {
 	topic := streamName(t)
 
 	for _, v := range msgs {

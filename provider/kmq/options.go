@@ -13,6 +13,7 @@ type options struct {
 	serverHost       string
 	serverPort       int
 	clientID         string
+	groupID          string
 	onStreamError    func(error)
 	onSubscribeError func(error)
 	deliverTimeout   time.Duration
@@ -51,6 +52,15 @@ func WithClientID(clientID string) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.clientID = clientID
+		},
+	}
+}
+
+// WithGroupID sets the group ID to be used when registering to KubeMQ server.
+func WithGroupID(groupID string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.groupID = groupID
 		},
 	}
 }

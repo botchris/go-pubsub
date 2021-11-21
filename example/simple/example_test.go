@@ -37,22 +37,25 @@ func Test_EndToEnd(t *testing.T) {
 			return errors.New("panic recovery")
 		})
 
-		s1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.inc()
 
 			return nil
 		})
 
-		s2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
+		h2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			panic("boom")
 		})
 
 		require.NotNil(t, broker)
-		require.NotNil(t, s1)
-		require.NotNil(t, s2)
+		require.NotNil(t, h1)
+		require.NotNil(t, h2)
 
-		require.NoError(t, broker.Subscribe(ctx, t1, s1))
-		require.NoError(t, broker.Subscribe(ctx, t2, s2))
+		_, err := broker.Subscribe(ctx, t1, h1)
+		require.NoError(t, err)
+
+		_, err = broker.Subscribe(ctx, t2, h2)
+		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to s1 THEN printer logs messages", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, t1, &emptypb.Empty{}))
@@ -80,16 +83,18 @@ func Test_EndToEnd(t *testing.T) {
 		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		topicID := pubsub.Topic("yolo-2")
 		rx := &lockedCounter{}
-		s := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			rx.inc()
 
 			return nil
 		})
 
 		require.NotNil(t, broker)
-		require.NotNil(t, s)
+		require.NotNil(t, h1)
 
-		require.NoError(t, broker.Subscribe(ctx, topicID, s))
+		_, err := broker.Subscribe(ctx, topicID, h1)
+		require.NoError(t, err)
+
 		require.NoError(t, broker.Publish(ctx, topicID, &emptypb.Empty{}))
 		require.Equal(t, 1, rx.read())
 	})

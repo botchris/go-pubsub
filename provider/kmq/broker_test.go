@@ -9,7 +9,6 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/kmq"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -87,7 +86,7 @@ func BenchmarkPublishProtoTenSubs(b *testing.B) {
 }
 
 func TestSingleBroker(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
 	defer cancel()
 
 	t.Run("GIVEN a broker with two subscribers to the same topic but different groups", func(t *testing.T) {
@@ -99,21 +98,23 @@ func TestSingleBroker(t *testing.T) {
 
 		consumer1 := &consumer{}
 		h1 := pubsub.NewHandler(consumer1.handle)
-		_, err = broker.Subscribe(ctx, topic, h1, pubsub.WithQueue(uuid.New()))
+		s1, err := broker.Subscribe(ctx, topic, h1, pubsub.WithQueue("g1"))
 		require.NoError(t, err)
+		require.EqualValues(t, "g1", s1.Options().Queue)
 
 		consumer2 := &consumer{}
 		h2 := pubsub.NewHandler(consumer2.handle)
-		_, err = broker.Subscribe(ctx, topic, h2, pubsub.WithQueue(uuid.New()))
+		s2, err := broker.Subscribe(ctx, topic, h2, pubsub.WithQueue("g2"))
 		require.NoError(t, err)
+		require.EqualValues(t, "g2", s2.Options().Queue)
 
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 
 		t.Run("WHEN publishing two messages to topic", func(t *testing.T) {
 			msgs := []string{
-				"message 1",
-				"message 2",
+				"message-1",
+				"message-2",
 			}
 
 			for _, m := range msgs {
@@ -122,9 +123,6 @@ func TestSingleBroker(t *testing.T) {
 
 			t.Run("THEN both subscribers eventually receives the same messages", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					spew.Dump(consumer1.received())
-					spew.Dump(consumer2.received())
-
 					return consumer1.received().hasExactlyOnce(msgs...) && consumer2.received().hasExactlyOnce(msgs...)
 				}, 3*time.Second, time.Millisecond*100)
 			})
@@ -193,11 +191,11 @@ func TestMultiInstanceBroker(t *testing.T) {
 		clientID := "test-client"
 		gid := uuid.New()
 
-		broker1, err := prepareJSONBroker(ctx, clientID)
+		broker1, err := prepareJSONBroker(ctx, clientID, gid)
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		broker2, err := prepareJSONBroker(ctx, clientID)
+		broker2, err := prepareJSONBroker(ctx, clientID, gid)
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
@@ -205,12 +203,12 @@ func TestMultiInstanceBroker(t *testing.T) {
 
 		consumer1 := &consumer{}
 		h1 := pubsub.NewHandler(consumer1.handle)
-		_, err = broker1.Subscribe(ctx, topic, h1, pubsub.WithQueue(gid))
+		_, err = broker1.Subscribe(ctx, topic, h1)
 		require.NoError(t, err)
 
 		consumer2 := &consumer{}
 		h2 := pubsub.NewHandler(consumer2.handle)
-		_, err = broker2.Subscribe(ctx, topic, h2, pubsub.WithQueue(gid))
+		_, err = broker2.Subscribe(ctx, topic, h2)
 		require.NoError(t, err)
 
 		// wait for server to ack async subscription
@@ -296,11 +294,17 @@ func TestMultiHostBroker(t *testing.T) {
 	})
 }
 
-func prepareJSONBroker(ctx context.Context, clientID string) (pubsub.Broker, error) {
+func prepareJSONBroker(ctx context.Context, clientID string, gid ...string) (pubsub.Broker, error) {
+	groupID := uuid.New()
+	if len(gid) > 0 {
+		groupID = gid[0]
+	}
+
 	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
+		kmq.WithGroupID(groupID),
 	)
 
 	if err != nil {
@@ -310,11 +314,17 @@ func prepareJSONBroker(ctx context.Context, clientID string) (pubsub.Broker, err
 	return codec.NewCodecMiddleware(broker, codec.JSON), nil
 }
 
-func prepareProtoBroker(ctx context.Context, clientID string) (pubsub.Broker, error) {
+func prepareProtoBroker(ctx context.Context, clientID string, gid ...string) (pubsub.Broker, error) {
+	groupID := uuid.New()
+	if len(gid) > 0 {
+		groupID = gid[0]
+	}
+
 	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
+		kmq.WithGroupID(groupID),
 	)
 
 	if err != nil {

@@ -1,4 +1,4 @@
-package util_test
+package rr_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/botchris/go-pubsub"
-	"github.com/botchris/go-pubsub/provider/util"
+	"github.com/botchris/go-pubsub/provider/kmq/rr"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ func TestSubscriptionsCollection(t *testing.T) {
 
 	t.Run("GIVEN an empty collection", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
-		collection := util.NewSubscriptionsCollection()
+		collection := rr.NewSubscriptionsCollection()
 
 		t.Run("WHEN asking for a topic THEN collection returns topics does not exists", func(t *testing.T) {
 			require.False(t, collection.HasTopic(topic))
@@ -35,7 +35,7 @@ func TestSubscriptionsCollection(t *testing.T) {
 
 	t.Run("GIVEN a collection with one topic and one subscription", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
-		collection := util.NewSubscriptionsCollection()
+		collection := rr.NewSubscriptionsCollection()
 		handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
 		s, err := dummySubscription(ctx, topic, handler)
@@ -52,7 +52,7 @@ func TestSubscriptionsCollection(t *testing.T) {
 
 	t.Run("GIVEN a collection with one topic and one subscription", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
-		collection := util.NewSubscriptionsCollection()
+		collection := rr.NewSubscriptionsCollection()
 		handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
 		s, err := dummySubscription(ctx, topic, handler)
@@ -70,7 +70,7 @@ func TestSubscriptionsCollection(t *testing.T) {
 
 	t.Run("GIVEN a collection with one topic and two subscription sharing the same queue", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
-		collection := util.NewSubscriptionsCollection()
+		collection := rr.NewSubscriptionsCollection()
 
 		h1 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 		h2 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
@@ -97,11 +97,11 @@ func TestSubscriptionsCollection(t *testing.T) {
 	})
 }
 
-func dummySubscription(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (util.StoppableSubscription, error) {
+func dummySubscription(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.StoppableSubscription, error) {
 	opts := pubsub.DefaultSubscribeOptions()
 	for _, o := range option {
 		o(opts)
 	}
 
-	return util.NewStoppableSubscription(ctx, uuid.New(), topic, handler, func() error { return nil }, *opts)
+	return pubsub.NewStoppableSubscription(ctx, uuid.New(), topic, handler, func() error { return nil }, *opts)
 }

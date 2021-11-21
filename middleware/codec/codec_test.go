@@ -64,11 +64,11 @@ func TestJson(t *testing.T) {
 			return nil
 		})
 
-		_, err := broker.Subscribe(ctx, "test", h1)
-		_, err = broker.Subscribe(ctx, "test", h2)
+		_, sErr1 := broker.Subscribe(ctx, "test", h1)
+		_, sErr2 := broker.Subscribe(ctx, "test", h2)
 
-		require.NoError(t, err)
-		require.NoError(t, err)
+		require.NoError(t, sErr1)
+		require.NoError(t, sErr2)
 
 		t.Run("WHEN publishing a custom pointer message", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))

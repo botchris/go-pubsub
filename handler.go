@@ -3,10 +3,7 @@ package pubsub
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
-
-	"github.com/google/uuid"
 )
 
 // List of known errors for handler signature validation process
@@ -27,7 +24,8 @@ var (
 	topicType   = reflect.TypeOf(Topic(""))
 )
 
-// Handler represents a handling function.
+// Handler represents a function capable of handling a message arriving at a
+// topic.
 type Handler interface {
 	// Deliver delivers the message to the handler. If handler does not
 	// accept this kind of message, it should NOT return an error.
@@ -35,23 +33,26 @@ type Handler interface {
 
 	// Reflect returns a description of the message type the handler is
 	// interested in.
-	Reflect() HandlerReflection
-
-	// String returns a string representation of the handler.
-	String() string
+	Reflect() MessageReflection
 }
 
-// HandlerReflection describes the message a handler is interested in.
-type HandlerReflection struct {
+// MessageReflection describes the message a handler is interested in.
+type MessageReflection struct {
 	MessageType reflect.Type
 	MessageKind reflect.Kind
+	Handler     reflect.Value
+}
+
+// Accepts whether the handler accepts the provided message.
+func (r MessageReflection) Accepts(m interface{}) bool {
+	in := reflect.TypeOf(m)
+
+	return in.AssignableTo(r.MessageType)
 }
 
 // Subscriber represents a handling function capable of receiving messages
 type handler struct {
-	id          string
-	handlerFunc reflect.Value
-	messageType reflect.Type
+	reflection  MessageReflection
 	messageKind reflect.Kind
 }
 
@@ -75,20 +76,20 @@ func NewHandler(handlerFunc interface{}) Handler {
 	}
 
 	fnType := reflect.TypeOf(handlerFunc)
-	id := uuid.New().String()
 	mType := fnType.In(2)
 
 	return &handler{
-		id:          id,
-		handlerFunc: reflect.ValueOf(handlerFunc),
-		messageType: mType,
+		reflection: MessageReflection{
+			MessageType: mType,
+			MessageKind: mType.Kind(),
+			Handler:     reflect.ValueOf(handlerFunc),
+		},
 		messageKind: mType.Kind(),
 	}
 }
 
-// Deliver delivers the given message to this subscribers if acceptable
-func (s *handler) Deliver(ctx context.Context, topic Topic, message interface{}) error {
-	if messageType := reflect.TypeOf(message); !s.accepts(messageType) {
+func (h *handler) Deliver(ctx context.Context, topic Topic, message interface{}) error {
+	if !h.reflection.Accepts(message) {
 		return nil
 	}
 
@@ -98,29 +99,15 @@ func (s *handler) Deliver(ctx context.Context, topic Topic, message interface{})
 		reflect.ValueOf(message),
 	}
 
-	if out := s.handlerFunc.Call(args); out[0].Interface() != nil {
+	if out := h.reflection.Handler.Call(args); out[0].Interface() != nil {
 		return out[0].Interface().(error)
 	}
 
 	return nil
 }
 
-func (s *handler) Reflect() HandlerReflection {
-	return HandlerReflection{
-		MessageType: s.messageType,
-		MessageKind: s.messageKind,
-	}
-}
-
-// String returns a string representation of this subscription
-func (s *handler) String() string {
-	in := s.messageType.String()
-
-	return fmt.Sprintf("%s(%s)", s.id, in)
-}
-
-func (s *handler) accepts(in reflect.Type) bool {
-	return in.AssignableTo(s.messageType)
+func (h *handler) Reflect() MessageReflection {
+	return h.reflection
 }
 
 // validateHandlerFn ensures that the given handling function has the form: `func (ctx context.Context, m <Type>) error`

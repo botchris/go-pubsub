@@ -9,6 +9,9 @@ type Subscription interface {
 	Handler() Handler
 }
 
+// UnsubscribeFunc represents a function responsible for unsubscribing.
+type UnsubscribeFunc func() error
+
 type subscription struct {
 	id      string
 	topic   Topic
@@ -17,8 +20,14 @@ type subscription struct {
 	handler Handler
 }
 
-// NewSubscription creates a new subscription.
-func NewSubscription(id string, topic Topic, handler Handler, unsub func() error, options SubscribeOptions) Subscription {
+// NewSubscription convenience function for creating a new subscriptions.
+func NewSubscription(
+	id string,
+	topic Topic,
+	handler Handler,
+	unsub UnsubscribeFunc,
+	options SubscribeOptions,
+) Subscription {
 	if unsub == nil {
 		unsub = func() error {
 			return nil

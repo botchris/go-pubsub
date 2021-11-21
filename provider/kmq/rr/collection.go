@@ -1,4 +1,4 @@
-package util
+package rr
 
 import (
 	"sync"
@@ -29,7 +29,7 @@ func NewSubscriptionsCollection() *SubscriptionsCollection {
 }
 
 // Add registers a new subscription.
-func (s *SubscriptionsCollection) Add(subscription StoppableSubscription) {
+func (s *SubscriptionsCollection) Add(subscription pubsub.StoppableSubscription) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -117,11 +117,11 @@ func (s *SubscriptionsCollection) HasTopic(topic pubsub.Topic) bool {
 
 // Receptors retrieves a list of subscriptions candidates to handle an arriving
 // message to the specified topic.
-func (s *SubscriptionsCollection) Receptors(topic pubsub.Topic) []StoppableSubscription {
+func (s *SubscriptionsCollection) Receptors(topic pubsub.Topic) []pubsub.StoppableSubscription {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var receptors []StoppableSubscription
+	var receptors []pubsub.StoppableSubscription
 
 	if _, ok := s.byQueue[topic]; ok {
 		for _, q := range s.byQueue[topic] {

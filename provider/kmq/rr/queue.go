@@ -1,14 +1,16 @@
-package util
+package rr
 
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/botchris/go-pubsub"
 )
 
 // queue is a queue implementation with round-robin selection algorithm.
 type queue struct {
 	name      queueName
-	items     []StoppableSubscription
+	items     []pubsub.StoppableSubscription
 	locations map[string]int
 	next      uint32
 	mu        sync.RWMutex
@@ -19,12 +21,12 @@ type queueName string
 func newQueue(name string) *queue {
 	return &queue{
 		name:      queueName(name),
-		items:     make([]StoppableSubscription, 0),
+		items:     make([]pubsub.StoppableSubscription, 0),
 		locations: make(map[string]int),
 	}
 }
 
-func (r *queue) add(subscription StoppableSubscription) {
+func (r *queue) add(subscription pubsub.StoppableSubscription) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -53,11 +55,11 @@ func (r *queue) remove(id string) {
 	delete(r.locations, id)
 }
 
-func (r *queue) all() []StoppableSubscription {
+func (r *queue) all() []pubsub.StoppableSubscription {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	out := make([]StoppableSubscription, len(r.items))
+	out := make([]pubsub.StoppableSubscription, len(r.items))
 	copy(out, r.items)
 
 	return out
@@ -72,7 +74,7 @@ func (r *queue) empty() bool {
 
 // pick returns the next subscription. It may return nil if there are no
 // subscriptions.
-func (r *queue) pick() StoppableSubscription {
+func (r *queue) pick() pubsub.StoppableSubscription {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
