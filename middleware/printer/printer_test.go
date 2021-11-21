@@ -22,20 +22,21 @@ func TestNewPrinterMiddleware(t *testing.T) {
 		t1 := pubsub.Topic("topic-1")
 		rx := &lockedCounter{}
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
 
-		s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			rx.inc()
 
 			return nil
 		})
 
 		require.NotNil(t, broker)
-		require.NotNil(t, s1)
+		require.NotNil(t, h1)
 
-		require.NoError(t, broker.Subscribe(ctx, t1, s1))
+		_, err := broker.Subscribe(ctx, t1, h1)
+		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to s1 THEN printer logs messages", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, t1, &emptypb.Empty{}))

@@ -1,6 +1,6 @@
 # Go PubSub
 
-The `pubsub` package is a simple package for implementing publish-subscribe
+The `go-pubsub` package is a simple package for implementing publish-subscribe
 asynchronous tasks in Golang. It allows writing publishers and subscribers fully
 statically typed, and swap out Broker implementations (e.g. Memory, AWS SQS, 
 etc.) as required.
@@ -8,8 +8,8 @@ etc.) as required.
 This package imposes no restrictions on how messages should be represented, the 
 idea is to keep subscribers agnostic to transport concerns and be fully typed
 using golang definitions. How messages are encoded/decoded in order to be
-transported over the network is up to the provider implementation. See
-KubeMQ or AWS implementation for an example of how to encode/decode messages.
+transported over the network is up to the provider implementation in 
+combination with Codec middlewares.
 
 ![broker overview][broker-overview]
 
@@ -30,15 +30,16 @@ asynchronous messaging.
   decide whether they want to receive messages for a concrete type or not
   (content-based), or just receive everything that is pushed to a given
   topic/s (topic-based).
-- Pluggable providers. Just implement the `Broker` interface.
+- Pluggable providers. Just implement the `Broker` interface. See below for 
+  a list of built-in providers
 
 ## Providers
 
 Providers are concrete implementations of the Broker interface. Examples of
 providers could be messaging services such as Google's PubSub, Amazon's SNS
-or Nats.io. Broker interface acts as a generalization for suh services.
+or Nats.io. The Broker interface acts as a generalization for suh services.
 
-The `pubsub` package comes with a set of built-in providers:
+The `go-pubsub` package comes with a set of built-in providers:
 
 - `memory`: a simple Broker which allows communicating local process of your 
   system by interchanging messages, which can be used as a simple "Message 
@@ -50,11 +51,10 @@ The `pubsub` package comes with a set of built-in providers:
 
 ## Middleware
 
-The `pubsub` package provides a simple API for implementing and installing
-interceptors. A middleware intercepts each message being published or
-being delivered to subscribers. Users can use middleware to do logging, metrics
-collection, and many other functionalities that can be shared across PubSub
-Providers.
+A middleware acts as a wrapper for a Broker implementation. It can be used 
+to intercept each message being published or being delivered to subscribers. 
+Users can use middleware to do logging, metrics collection, and many other 
+functionalities that can be shared across PubSub Providers.
 
 To use middleware capabilities you must simply wrap your broker using any of 
 the provided middlewares, example:
@@ -63,21 +63,35 @@ the provided middlewares, example:
 broker := printer.NewPrinterMiddleware(myProvider, os.Stdout)
 ```
 
-Middlewares act as a wrapper for the given broker by adding interception 
-capabilities. Included middlewares are:
+Included middlewares are:
 
 - `codec`: a middleware that encodes and decodes messages using the given codec.
 - `printer`: a simple middleware that prints each message to the given output.
 - `recover`: a middleware that recovers from panics.
 - `retry`: a middleware that retries publishing messages if the broker fails.
 
+Middlewares can be combined by wrapping each other, example:
+
+```go
+broker := memory.NewMemoryBroker(memory.NopErrorHandler) 
+broker = printer.NewPrinterMiddleware(myProvider, os.Stdout)
+broker = codec.NewCodecMiddleware(broker, codec.JSON)
+broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
+    println("panic:", p)
+	
+	return nil 
+})
+```
+
 ## TODO
 
 - [ ] Kafka provider
-- [ ] Google's Pub/Sub
+- [ ] Google's Pub/Sub provider
+- [ ] Nats.io provider
+- [x] Redis provider
 - [x] Add protobuf support as a middleware codec
 - [x] Recovery middleware for dealing with panics
-- [x] Retry middleware for dealing with unreliable providers/subscribers
+- [x] Retry middleware for dealing with unreliable providers/handlers
 
 ## Example
 
@@ -95,7 +109,7 @@ import (
 
 var myTopic pubsub.Topic = "my-topic"
 
-type MyMessage struct {
+type myMessage struct {
   Body string
 }
 
@@ -103,42 +117,75 @@ func main() {
   ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
   defer cancel()
 
-  // Declare subscribers. This usually takes place within a `init()` function
-  s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
+  broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+
+  h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m myMessage) error {
     fmt.Printf("%s -> %+v -> [s1]\n", t, m)
 
     return nil
   })
 
-  s2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
+  h2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m *myMessage) error {
     fmt.Printf("%s -> %+v -> [s2]\n", t, m)
 
     return nil
   })
 
-  s3 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+  h3 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
     fmt.Printf("%s -> %+v -> [s3]\n", t, m)
 
     return nil
   })
 
-  // Declare provider.
-  broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+  // subscribe
+  var s1 pubsub.Subscription
+  {
+    s1l, err := broker.Subscribe(ctx, myTopic, h1)
+    if err != nil {
+      panic(err)
+    }
 
-  // Bind subscribers to a topic.
-  broker.Subscribe(ctx, myTopic, s1)
-  broker.Subscribe(ctx, myTopic, s2)
-  broker.Subscribe(ctx, myTopic, s3)
+    s1 = s1l
 
-  // Publish some messages, we drop errors on purpose for simplification reasons
-  _ = broker.Publish(ctx, myTopic, MyMessage{Body: "value(hello world)"})
-  _ = broker.Publish(ctx, myTopic, &MyMessage{Body: "pointer(hello world)"})
-  _ = broker.Publish(ctx, myTopic, "string(hello world)")
+    if _, sErr := broker.Subscribe(ctx, myTopic, h2); sErr != nil {
+      panic(sErr)
+    }
+
+    if _, sErr := broker.Subscribe(ctx, myTopic, h3); sErr != nil {
+      panic(sErr)
+    }
+  }
+
+  // publish
+  {
+    if err := broker.Publish(ctx, myTopic, myMessage{Body: "value(hello world)"}); err != nil {
+      panic(err)
+    }
+
+    if err := broker.Publish(ctx, myTopic, &myMessage{Body: "pointer(hello world)"}); err != nil {
+      panic(err)
+    }
+
+    if err := broker.Publish(ctx, myTopic, "string(hello world)"); err != nil {
+      panic(err)
+    }
+
+    // unsubscribe S1
+    if err := s1.Unsubscribe(); err != nil {
+      panic(err)
+    }
+
+    // this will noop
+    if err := broker.Publish(ctx, myTopic, myMessage{Body: "value(hello world)"}); err != nil {
+      panic(err)
+    }
+  }
 
   // Output:
   //  {Body:value(hello world)} -> my-topic -> [s1]
   //  &{Body:pointer(hello world)} -> my-topic -> [s2]
   //  string(hello world) -> my-topic -> [s3]
+  // <nothing>
 }
 ```
 

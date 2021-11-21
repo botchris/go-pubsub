@@ -75,12 +75,12 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interfac
 	return mw.Broker.Publish(ctx, topic, bytes)
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
-	s := &subscriber{
-		Subscriber: sub,
-		codec:      mw.codec,
-		cache:      mw.cache,
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, h pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
+	nh := &handler{
+		Handler: h,
+		codec:   mw.codec,
+		cache:   mw.cache,
 	}
 
-	return mw.Broker.Subscribe(ctx, topic, s)
+	return mw.Broker.Subscribe(ctx, topic, nh, option...)
 }

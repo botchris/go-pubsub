@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
 // NewBroker returns a new broker instance that does nothing.
@@ -17,16 +18,13 @@ func (b *broker) Publish(_ context.Context, _ pubsub.Topic, _ interface{}) error
 	return nil
 }
 
-func (b *broker) Subscribe(_ context.Context, _ pubsub.Topic, _ pubsub.Subscriber) error {
-	return nil
-}
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
+	opts := pubsub.DefaultSubscribeOptions()
+	for _, o := range option {
+		o(opts)
+	}
 
-func (b *broker) Unsubscribe(_ context.Context, _ pubsub.Topic, _ pubsub.Subscriber) error {
-	return nil
-}
-
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
-	return map[pubsub.Topic][]pubsub.Subscriber{}, nil
+	return pubsub.NewSubscription(uuid.New(), topic, handler, nil, *opts), nil
 }
 
 func (b *broker) Shutdown(_ context.Context) error {

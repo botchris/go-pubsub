@@ -9,12 +9,12 @@ import (
 	"github.com/botchris/go-pubsub"
 )
 
-type subscriber struct {
-	pubsub.Subscriber
+type handler struct {
+	pubsub.Handler
 	writer io.Writer
 }
 
-func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
+func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) (err error) {
 	j, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -25,7 +25,7 @@ func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interfac
 		return err
 	}
 
-	err = s.Subscriber.Deliver(ctx, topic, m)
+	err = s.Handler.Deliver(ctx, topic, m)
 
 	return
 }

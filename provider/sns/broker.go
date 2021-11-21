@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/botchris/go-pubsub"
 	"github.com/hashicorp/go-multierror"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
 type broker struct {
@@ -21,14 +22,8 @@ type broker struct {
 	runnerCtx    context.Context
 	options      *options
 	topics       *topicsCache
-	subs         map[pubsub.Topic]map[string]*subscription
+	subs         map[pubsub.Topic]map[string]Subscription
 	mu           sync.RWMutex
-}
-
-type subscription struct {
-	arn     string
-	topic   pubsub.Topic
-	handler pubsub.Subscriber
 }
 
 // NewBroker returns a broker that uses AWS SNS service for pub/sub messaging
@@ -36,9 +31,9 @@ type subscription struct {
 //
 // This broker will start running a background goroutine that will poll the SQS
 // queue for new messages. Topics must be firstly created on AWS SNS before
-// starting this broker, and each Topic must be tagged with the "topic-name"
+// starting this broker, and each topic must be tagged with the "topic-name"
 // key on AWS. This is used to hold the name of the topic as seen by the broker
-// implementation (`pubsub.Topic`).
+// implementation (`pubsub.topic`).
 //
 // IMPORTANT: this broker must be used in conjunction with a Codec middleware in
 // order to ensure that the messages are properly encoded and decoded.
@@ -75,7 +70,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		runnerCtx:    ctx,
 		options:      opts,
 		topics:       newTopicsCache(opts.snsClient),
-		subs:         make(map[pubsub.Topic]map[string]*subscription),
+		subs:         make(map[pubsub.Topic]map[string]Subscription),
 	}
 
 	if err := b.topics.reloadCache(ctx); err != nil {
@@ -112,75 +107,70 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
+func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	sub, err := b.options.snsClient.Subscribe(ctx, &sns.SubscribeInput{
+	subSNS, err := b.options.snsClient.Subscribe(ctx, &sns.SubscribeInput{
 		Endpoint: aws.String(b.options.sqsQueueURL),
 		Protocol: aws.String("sqs"),
 		TopicArn: aws.String(topicARN),
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if _, ok := b.subs[topic]; !ok {
-		b.subs[topic] = make(map[string]*subscription)
+		b.subs[topic] = make(map[string]Subscription)
 	}
 
-	b.subs[topic][subscriber.ID()] = &subscription{
-		arn:     *sub.SubscriptionArn,
-		topic:   topic,
-		handler: subscriber,
+	opts := pubsub.DefaultSubscribeOptions()
+	for _, o := range option {
+		o(opts)
 	}
 
-	return nil
-}
+	sid := uuid.New()
+	unsub := func() error {
+		b.mu.Lock()
+		defer b.mu.Unlock()
 
-func (b *broker) Unsubscribe(ctx context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	subs, ok := b.subs[topic]
-	if !ok {
-		return nil
-	}
-
-	sub, ok := subs[subscriber.ID()]
-	if !ok {
-		return nil
-	}
-
-	_, err := b.options.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
-		SubscriptionArn: aws.String(sub.arn),
-	})
-
-	if err != nil {
-		return err
-	}
-
-	delete(b.subs[topic], subscriber.ID())
-
-	return nil
-}
-
-func (b *broker) Subscriptions(_ context.Context) (map[pubsub.Topic][]pubsub.Subscriber, error) {
-	out := make(map[pubsub.Topic][]pubsub.Subscriber)
-
-	for topic, subs := range b.subs {
-		for _, sub := range subs {
-			out[topic] = append(out[topic], sub.handler)
+		subs, ok := b.subs[topic]
+		if !ok {
+			return nil
 		}
+
+		sub, ok := subs[sid]
+		if !ok {
+			return nil
+		}
+
+		_, uErr := b.options.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
+			SubscriptionArn: aws.String(sub.ARN()),
+		})
+
+		if uErr != nil {
+			return err
+		}
+
+		delete(b.subs[topic], sid)
+
+		return nil
 	}
 
-	return out, nil
+	sub := &subscription{
+		arn:          *subSNS.SubscriptionArn,
+		Subscription: pubsub.NewSubscription(sid, topic, handler, unsub, *opts),
+	}
+
+	b.subs[topic][sid] = sub
+
+	return sub, nil
 }
 
 func (b *broker) Shutdown(ctx context.Context) error {
@@ -192,7 +182,7 @@ func (b *broker) Shutdown(ctx context.Context) error {
 	for _, subs := range b.subs {
 		for _, sub := range subs {
 			_, err := b.options.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
-				SubscriptionArn: aws.String(sub.arn),
+				SubscriptionArn: aws.String(sub.ARN()),
 			})
 
 			if err != nil {
@@ -232,7 +222,7 @@ func (b *broker) run() {
 			continue
 		}
 
-		deliver := make(map[sqsNotification][]*subscription)
+		deliver := make(map[sqsNotification][]Subscription)
 		ignore := make([]string, 0)
 
 		for _, n := range res.Messages {
@@ -253,7 +243,7 @@ func (b *broker) run() {
 				continue
 			}
 
-			deliver[noty] = make([]*subscription, 0)
+			deliver[noty] = make([]Subscription, 0)
 			for i := range subs {
 				deliver[noty] = append(deliver[noty], subs[i])
 			}
@@ -271,7 +261,7 @@ func (b *broker) run() {
 			for i := range subs {
 				wg.Add(1)
 
-				go func(sub *subscription, msg sqsNotification) {
+				go func(sub Subscription, msg sqsNotification) {
 					defer wg.Done()
 
 					if hErr := b.handleNotification(sub, msg); hErr != nil {
@@ -286,7 +276,7 @@ func (b *broker) run() {
 	}
 }
 
-func (b *broker) handleNotification(sub *subscription, noty sqsNotification) error {
+func (b *broker) handleNotification(sub Subscription, noty sqsNotification) error {
 	ctx, cancel := context.WithTimeout(b.runnerCtx, b.options.deliverTimeout)
 	defer cancel()
 
@@ -294,7 +284,7 @@ func (b *broker) handleNotification(sub *subscription, noty sqsNotification) err
 
 	message := []byte(noty.Message)
 
-	if dErr := sub.handler.Deliver(ctx, sub.topic, message); dErr != nil {
+	if dErr := sub.Handler().Deliver(ctx, sub.Topic(), message); dErr != nil {
 		mErr := &multierror.Error{}
 		mErr = multierror.Append(mErr, dErr)
 

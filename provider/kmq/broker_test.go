@@ -9,6 +9,7 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/kmq"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -21,7 +22,7 @@ func BenchmarkPublishJSONTenSubs(b *testing.B) {
 	topic := pubsub.Topic("topic")
 	message := time.Now().String()
 
-	broker, err := prepareJSONBroker(ctx, clientID, "")
+	broker, err := prepareJSONBroker(ctx, clientID)
 	require.NoError(b, err)
 
 	defer func() {
@@ -29,11 +30,12 @@ func BenchmarkPublishJSONTenSubs(b *testing.B) {
 	}()
 
 	for i := 0; i < 10; i++ {
-		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+		h := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
 			return nil
 		})
 
-		require.NoError(b, broker.Subscribe(ctx, topic, s))
+		_, sErr := broker.Subscribe(ctx, topic, h)
+		require.NoError(b, sErr)
 	}
 
 	time.Sleep(time.Second)
@@ -55,7 +57,7 @@ func BenchmarkPublishProtoTenSubs(b *testing.B) {
 	topic := pubsub.Topic("topic")
 	message := timestamppb.Now()
 
-	broker, err := prepareProtoBroker(ctx, clientID, "")
+	broker, err := prepareProtoBroker(ctx, clientID)
 	require.NoError(b, err)
 
 	defer func() {
@@ -63,11 +65,12 @@ func BenchmarkPublishProtoTenSubs(b *testing.B) {
 	}()
 
 	for i := 0; i < 10; i++ {
-		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+		h := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
 			return nil
 		})
 
-		require.NoError(b, broker.Subscribe(ctx, topic, s))
+		_, sErr := broker.Subscribe(ctx, topic, h)
+		require.NoError(b, sErr)
 	}
 
 	time.Sleep(time.Second)
@@ -83,41 +86,96 @@ func BenchmarkPublishProtoTenSubs(b *testing.B) {
 }
 
 func TestSingleBroker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a broker with two subscribers to the same topic but different groups", func(t *testing.T) {
+		clientID := "test-client"
+		topic := pubsub.Topic("test-topic")
+		broker, err := prepareJSONBroker(ctx, clientID)
+		require.NoError(t, err)
+		require.NotNil(t, broker)
+
+		consumer1 := &consumer{}
+		h1 := pubsub.NewHandler(consumer1.handle)
+		s1, err := broker.Subscribe(ctx, topic, h1, pubsub.WithQueue("g1"))
+		require.NoError(t, err)
+		require.EqualValues(t, "g1", s1.Options().Queue)
+
+		consumer2 := &consumer{}
+		h2 := pubsub.NewHandler(consumer2.handle)
+		s2, err := broker.Subscribe(ctx, topic, h2, pubsub.WithQueue("g2"))
+		require.NoError(t, err)
+		require.EqualValues(t, "g2", s2.Options().Queue)
+
+		// wait for server to ack async subscription
+		time.Sleep(time.Second)
+
+		t.Run("WHEN publishing two messages to topic", func(t *testing.T) {
+			msgs := []string{
+				"message-1",
+				"message-2",
+			}
+
+			for _, m := range msgs {
+				require.NoError(t, broker.Publish(ctx, topic, m))
+			}
+
+			t.Run("THEN both subscribers eventually receives the same messages", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					return consumer1.received().hasExactlyOnce(msgs...) && consumer2.received().hasExactlyOnce(msgs...)
+				}, 3*time.Second, time.Millisecond*100)
+			})
+		})
+	})
+}
+
+func TestQueue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a broker with two subscribers to a topic", func(t *testing.T) {
+	t.Run("GIVEN a broker with two subscriber sharing the same queue", func(t *testing.T) {
 		clientID := "test-client"
-		broker, err := prepareJSONBroker(ctx, clientID, "")
+		gid := uuid.New()
+
+		broker, err := prepareJSONBroker(ctx, clientID)
 		require.NoError(t, err)
 		require.NotNil(t, broker)
 
 		topic := pubsub.Topic("test-topic")
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
-		require.NoError(t, broker.Subscribe(ctx, topic, sub1))
+		h1 := pubsub.NewHandler(consumer1.handle)
+		_, err = broker.Subscribe(ctx, topic, h1, pubsub.WithQueue(gid))
+		require.NoError(t, err)
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
-		require.NoError(t, broker.Subscribe(ctx, topic, sub2))
-
-		subscriptions, err := broker.Subscriptions(ctx)
+		h2 := pubsub.NewHandler(consumer2.handle)
+		_, err = broker.Subscribe(ctx, topic, h2, pubsub.WithQueue(gid))
 		require.NoError(t, err)
-		require.Len(t, subscriptions, 1)
-		require.Contains(t, subscriptions, topic)
-		require.Len(t, subscriptions[topic], 2)
 
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
 
-		t.Run("WHEN publishing a message to topic X", func(t *testing.T) {
-			msg := "test-message"
-			require.NoError(t, broker.Publish(ctx, topic, msg))
+		t.Run("WHEN publishing 5 messages to such topic", func(t *testing.T) {
+			send := []string{
+				"test-message-1",
+				"test-message-2",
+				"test-message-3",
+				"test-message-4",
+				"test-message-5",
+			}
 
-			t.Run("THEN subscribers eventually receives the same message", func(t *testing.T) {
+			for _, msg := range send {
+				require.NoError(t, broker.Publish(ctx, topic, msg))
+			}
+
+			t.Run("THEN all messages are eventually received sharded across subscribers", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					return consumer1.received().hasExactlyOnce(msg) && consumer2.received().hasExactlyOnce(msg)
+					r1 := consumer1.received()
+					r2 := consumer2.received()
+
+					return r1.merge(r2).hasExactlyOnce(send...)
 				}, 3*time.Second, time.Millisecond*100)
 			})
 		})
@@ -131,23 +189,27 @@ func TestMultiInstanceBroker(t *testing.T) {
 
 	t.Run("GIVEN two brokers with the same id and with one subscriber each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker1, err := prepareJSONBroker(ctx, clientID, "g1")
+		gid := uuid.New()
+
+		broker1, err := prepareJSONBroker(ctx, clientID, gid)
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		broker2, err := prepareJSONBroker(ctx, clientID, "g1")
+		broker2, err := prepareJSONBroker(ctx, clientID, gid)
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
 		topic := pubsub.Topic("test-topic")
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
-		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+		h1 := pubsub.NewHandler(consumer1.handle)
+		_, err = broker1.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
-		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+		h2 := pubsub.NewHandler(consumer2.handle)
+		_, err = broker2.Subscribe(ctx, topic, h2)
+		require.NoError(t, err)
 
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
@@ -184,23 +246,25 @@ func TestMultiHostBroker(t *testing.T) {
 
 	t.Run("GIVEN two brokers with the distinct ids and with one subscriber each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
-		broker1, err := prepareJSONBroker(ctx, clientID, "g1")
+		broker1, err := prepareJSONBroker(ctx, clientID)
 		require.NoError(t, err)
 		require.NotNil(t, broker1)
 
-		broker2, err := prepareJSONBroker(ctx, clientID, "g2")
+		broker2, err := prepareJSONBroker(ctx, clientID)
 		require.NoError(t, err)
 		require.NotNil(t, broker2)
 
 		topic := pubsub.Topic("test-topic")
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
-		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+		h1 := pubsub.NewHandler(consumer1.handle)
+		_, err = broker1.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
-		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+		h2 := pubsub.NewHandler(consumer2.handle)
+		_, err = broker2.Subscribe(ctx, topic, h2)
+		require.NoError(t, err)
 
 		// wait for server to ack async subscription
 		time.Sleep(time.Second)
@@ -230,12 +294,17 @@ func TestMultiHostBroker(t *testing.T) {
 	})
 }
 
-func prepareJSONBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
+func prepareJSONBroker(ctx context.Context, clientID string, gid ...string) (pubsub.Broker, error) {
+	groupID := uuid.New()
+	if len(gid) > 0 {
+		groupID = gid[0]
+	}
+
 	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
-		kmq.WithGroupID(groupID),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
+		kmq.WithGroupID(groupID),
 	)
 
 	if err != nil {
@@ -245,12 +314,17 @@ func prepareJSONBroker(ctx context.Context, clientID string, groupID string) (pu
 	return codec.NewCodecMiddleware(broker, codec.JSON), nil
 }
 
-func prepareProtoBroker(ctx context.Context, clientID string, groupID string) (pubsub.Broker, error) {
+func prepareProtoBroker(ctx context.Context, clientID string, gid ...string) (pubsub.Broker, error) {
+	groupID := uuid.New()
+	if len(gid) > 0 {
+		groupID = gid[0]
+	}
+
 	broker, err := kmq.NewBroker(ctx,
 		kmq.WithClientID(clientID),
-		kmq.WithGroupID(groupID),
 		kmq.WithServerHost("localhost"),
 		kmq.WithServerPort(50000),
+		kmq.WithGroupID(groupID),
 	)
 
 	if err != nil {

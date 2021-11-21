@@ -8,12 +8,12 @@ import (
 	"github.com/botchris/go-pubsub"
 )
 
-type subscriber struct {
-	pubsub.Subscriber
+type handler struct {
+	pubsub.Handler
 	strategy Strategy
 }
 
-func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	done := ctx.Done()
 
 retry:
@@ -36,7 +36,7 @@ retry:
 		}
 	}
 
-	if err := s.Subscriber.Deliver(ctx, topic, m); err != nil {
+	if err := s.Handler.Deliver(ctx, topic, m); err != nil {
 		if s.strategy.Failure(topic, m, err) {
 			fmt.Printf("retrying delivery error, cause: message was dropped, retries exhausted {topic=%s, error=%s}\n", topic, err)
 

@@ -66,11 +66,11 @@ retry:
 	return nil
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
-	s := &subscriber{
-		Subscriber: sub,
-		strategy:   mw.deliverStrategy,
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, h pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
+	s := &handler{
+		Handler:  h,
+		strategy: mw.deliverStrategy,
 	}
 
-	return mw.Broker.Subscribe(ctx, topic, s)
+	return mw.Broker.Subscribe(ctx, topic, s, option...)
 }

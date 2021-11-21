@@ -44,16 +44,13 @@ func TestSingleBroker(t *testing.T) {
 		consumer2 := &consumer{}
 
 		t.Run("WHEN registering two subscribers to such topic", func(t *testing.T) {
-			sub1 := pubsub.NewSubscriber(consumer1.handle)
-			require.NoError(t, broker.Subscribe(ctx, topic, sub1))
-
-			sub2 := pubsub.NewSubscriber(consumer2.handle)
-			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
-
-			subscriptions, err := broker.Subscriptions(ctx)
+			h1 := pubsub.NewHandler(consumer1.handle)
+			_, err = broker.Subscribe(ctx, topic, h1)
 			require.NoError(t, err)
-			require.Contains(t, subscriptions, topic)
-			require.Len(t, subscriptions[topic], 2)
+
+			h2 := pubsub.NewHandler(consumer2.handle)
+			_, err = broker.Subscribe(ctx, topic, h2)
+			require.NoError(t, err)
 
 			// wait async subscription to take place
 			time.Sleep(time.Second)
@@ -123,12 +120,14 @@ func TestMultiInstanceBroker(t *testing.T) {
 		}()
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
-		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+		h1 := pubsub.NewHandler(consumer1.handle)
+		_, err = broker1.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
-		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+		h2 := pubsub.NewHandler(consumer2.handle)
+		_, err = broker2.Subscribe(ctx, topic, h2)
+		require.NoError(t, err)
 
 		// wait async subscription to take place
 		time.Sleep(time.Second)
@@ -190,12 +189,14 @@ func TestMultiHostBroker(t *testing.T) {
 		}()
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
-		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
+		h1 := pubsub.NewHandler(consumer1.handle)
+		_, err = broker1.Subscribe(ctx, topic, h1)
+		require.NoError(t, err)
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
-		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
+		h2 := pubsub.NewHandler(consumer2.handle)
+		_, err = broker2.Subscribe(ctx, topic, h2)
+		require.NoError(t, err)
 
 		// wait async subscription to take place
 		time.Sleep(time.Second)

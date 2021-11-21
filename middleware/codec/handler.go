@@ -10,26 +10,26 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-type subscriber struct {
-	pubsub.Subscriber
+type handler struct {
+	pubsub.Handler
 	codec Codec
 	cache *lru.Cache
 }
 
-func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
+func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
 	bytes, ok := m.([]byte)
 	if !ok {
 		return fmt.Errorf("delivery failure: expecting message to be of type []byte, but got `%T`", m)
 	}
 
-	srf := s.Subscriber.Reflect()
+	srf := s.Handler.Reflect()
 
 	h := sha1.New()
 	key := append(bytes, []byte(srf.MessageType.String())...)
 	hash := fmt.Sprintf("%x", h.Sum(key))
 
 	if found, hit := s.cache.Get(hash); hit {
-		return s.Subscriber.Deliver(ctx, topic, found)
+		return s.Handler.Deliver(ctx, topic, found)
 	}
 
 	msg, err := s.decodeFor(bytes, srf.MessageType, srf.MessageKind)
@@ -39,12 +39,12 @@ func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interfac
 
 	s.cache.Add(hash, msg)
 
-	return s.Subscriber.Deliver(ctx, topic, msg)
+	return s.Handler.Deliver(ctx, topic, msg)
 }
 
 // decodeFor attempts to dynamically decode a raw message for provided
 // subscriber using the given decoder function.
-func (s *subscriber) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
+func (s *handler) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
 	base := mType
 
 	if mKind == reflect.Ptr {

@@ -37,10 +37,11 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, msg interf
 	return mw.Broker.Publish(ctx, topic, msg)
 }
 
-func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Subscriber) error {
-	s := &subscriber{
-		Subscriber: sub,
-		writer:     mw.writer,
+func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, sub pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
+	s := &handler{
+		Handler: sub,
+		writer:  mw.writer,
 	}
-	return mw.Broker.Subscribe(ctx, topic, s)
+
+	return mw.Broker.Subscribe(ctx, topic, s, option...)
 }
