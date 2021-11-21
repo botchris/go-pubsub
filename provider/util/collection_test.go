@@ -7,6 +7,7 @@ import (
 
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/provider/util"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,8 @@ func TestSubscriptionsCollection(t *testing.T) {
 		})
 
 		t.Run("WHEN adding a subscription to topic dummy THEN collection eturns topic exists", func(t *testing.T) {
-			handler := pubsub.NewSubscriber(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
-			s, err := util.NewSubscription(ctx, topic, handler)
+			handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
+			s, err := dummySubscription(ctx, topic, handler)
 			require.NoError(t, err)
 
 			collection.Add(s)
@@ -35,16 +36,16 @@ func TestSubscriptionsCollection(t *testing.T) {
 	t.Run("GIVEN a collection with one topic and one subscription", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
 		collection := util.NewSubscriptionsCollection()
-		handler := pubsub.NewSubscriber(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
+		handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
-		s, err := util.NewSubscription(ctx, topic, handler)
+		s, err := dummySubscription(ctx, topic, handler)
 		require.NoError(t, err)
 
 		collection.Add(s)
 		require.True(t, collection.HasTopic(topic))
 
 		t.Run("WHEN removing the last subscription for a topic THEN collection is empty", func(t *testing.T) {
-			collection.RemoveFromTopic(topic, handler.ID())
+			collection.RemoveFromTopic(topic, s.ID())
 			require.False(t, collection.HasTopic(topic))
 		})
 	})
@@ -52,17 +53,10 @@ func TestSubscriptionsCollection(t *testing.T) {
 	t.Run("GIVEN a collection with one topic and one subscription", func(t *testing.T) {
 		topic := pubsub.Topic("dummy")
 		collection := util.NewSubscriptionsCollection()
-		handler := pubsub.NewSubscriber(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
+		handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
-		s, err := util.NewSubscription(ctx, topic, handler)
+		s, err := dummySubscription(ctx, topic, handler)
 		require.NoError(t, err)
-
-		originalStop := s.Stop
-		stopCalled := false
-		s.Stop = func() {
-			stopCalled = true
-			originalStop()
-		}
 
 		collection.Add(s)
 		require.True(t, collection.HasTopic(topic))
@@ -71,7 +65,6 @@ func TestSubscriptionsCollection(t *testing.T) {
 			collection.GracefulStop()
 
 			require.False(t, collection.HasTopic(topic))
-			require.True(t, stopCalled)
 		})
 	})
 
@@ -79,13 +72,13 @@ func TestSubscriptionsCollection(t *testing.T) {
 		topic := pubsub.Topic("dummy")
 		collection := util.NewSubscriptionsCollection()
 
-		h1 := pubsub.NewSubscriber(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
-		h2 := pubsub.NewSubscriber(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
+		h1 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
+		h2 := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, msg interface{}) error { return nil })
 
-		s1, err := util.NewSubscription(ctx, topic, h1, pubsub.WithQueue("q1"))
+		s1, err := dummySubscription(ctx, topic, h1, pubsub.WithQueue("q1"))
 		require.NoError(t, err)
 
-		s2, err := util.NewSubscription(ctx, topic, h2, pubsub.WithQueue("q1"))
+		s2, err := dummySubscription(ctx, topic, h2, pubsub.WithQueue("q1"))
 		require.NoError(t, err)
 
 		collection.Add(s1)
@@ -99,7 +92,16 @@ func TestSubscriptionsCollection(t *testing.T) {
 			r2 := collection.Receptors(topic)
 			require.Len(t, r2, 1)
 
-			require.NotEqualValues(t, r1[0].Handler.ID(), r2[0].Handler.ID())
+			require.NotEqualValues(t, r1[0].ID(), r2[0].ID())
 		})
 	})
+}
+
+func dummySubscription(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (util.StoppableSubscription, error) {
+	opts := pubsub.NewSubscribeOptions()
+	for _, o := range option {
+		o(opts)
+	}
+
+	return util.NewSubscription(ctx, uuid.New(), topic, handler, func() error { return nil }, *opts)
 }

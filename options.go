@@ -2,7 +2,7 @@ package pubsub
 
 // SubscribeOptions describes the options for a subscription.
 type SubscribeOptions struct {
-	// AutoAck defaults to true. When a subscriber returns with a nil error the
+	// AutoAck defaults to true. When a handler returns with a nil error the
 	/// message is acked.
 	AutoAck bool
 

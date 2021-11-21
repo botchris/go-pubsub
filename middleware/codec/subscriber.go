@@ -11,7 +11,7 @@ import (
 )
 
 type subscriber struct {
-	pubsub.Subscriber
+	pubsub.Handler
 	codec Codec
 	cache *lru.Cache
 }
@@ -22,14 +22,14 @@ func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interfac
 		return fmt.Errorf("delivery failure: expecting message to be of type []byte, but got `%T`", m)
 	}
 
-	srf := s.Subscriber.Reflect()
+	srf := s.Handler.Reflect()
 
 	h := sha1.New()
 	key := append(bytes, []byte(srf.MessageType.String())...)
 	hash := fmt.Sprintf("%x", h.Sum(key))
 
 	if found, hit := s.cache.Get(hash); hit {
-		return s.Subscriber.Deliver(ctx, topic, found)
+		return s.Handler.Deliver(ctx, topic, found)
 	}
 
 	msg, err := s.decodeFor(bytes, srf.MessageType, srf.MessageKind)
@@ -39,7 +39,7 @@ func (s *subscriber) Deliver(ctx context.Context, topic pubsub.Topic, m interfac
 
 	s.cache.Add(hash, msg)
 
-	return s.Subscriber.Deliver(ctx, topic, msg)
+	return s.Handler.Deliver(ctx, topic, msg)
 }
 
 // decodeFor attempts to dynamically decode a raw message for provided

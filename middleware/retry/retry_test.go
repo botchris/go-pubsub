@@ -90,10 +90,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 			Max:    5 * time.Second,
 		})
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
-		sub := pubsub.NewSubscriber(handler)
+		sub := pubsub.NewHandler(handler)
 
 		require.NoError(t, broker.Subscribe(ctx, topic, sub))
 
@@ -121,10 +121,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 		}
 
 		strategy := retry.NewBreakerStrategy(4, time.Second)
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
-		sub := pubsub.NewSubscriber(handler)
+		sub := pubsub.NewHandler(handler)
 
 		require.NoError(t, broker.Subscribe(ctx, topic, sub))
 

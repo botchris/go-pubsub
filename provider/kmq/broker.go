@@ -11,6 +11,7 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/provider/util"
 	"github.com/kubemq-io/kubemq-go"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
 type broker struct {
@@ -56,10 +57,6 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 
 	if opts.clientID == "" {
 		return nil, errors.New("no client id was provided")
-	}
-
-	if opts.groupID == "" {
-		return nil, errors.New("no group id was provided")
 	}
 
 	client, err := kubemq.NewEventsClient(ctx,
@@ -113,20 +110,43 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 	return b.sender(event)
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
 	b.smu.Lock()
 	defer b.smu.Unlock()
+
+	opts := pubsub.NewSubscribeOptions()
+	for _, o := range option {
+		o(opts)
+	}
+
+	sid := uuid.New()
+	unsub := func() error {
+		b.smu.Lock()
+		defer b.smu.Unlock()
+
+		b.subs.RemoveFromTopic(topic, sid)
+
+		// no one listening on this topic anymore.
+		if !b.subs.HasTopic(topic) {
+			b.streams.remove(topic, opts.Queue)
+		}
+
+		return nil
+	}
+
+	sub, err := util.NewSubscription(b.ctx, sid, topic, handler, unsub, *opts)
+	if err != nil {
+		return nil, err
+	}
 
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
 		ClientId: b.options.clientID,
-		Group:    b.options.groupID,
+		Group:    sub.Options().Queue,
 	}
 
-	streamCreated := false
-
-	if !b.streams.has(topic) {
-		ctx := b.streams.add(b.ctx, topic)
+	if !b.streams.has(topic, sub.Options().Queue) {
+		ctx := b.streams.add(b.ctx, topic, sub.Options().Queue)
 		err := b.client.Subscribe(ctx, req, func(msg *kubemq.Event, err error) {
 			if err != nil {
 				b.options.onSubscribeError(err)
@@ -140,38 +160,13 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pub
 		})
 
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		streamCreated = true
-	}
-
-	sub, err := util.NewSubscription(b.ctx, topic, subscriber, option...)
-	if err != nil {
-		if streamCreated {
-			b.streams.remove(topic)
-		}
-
-		return err
 	}
 
 	b.subs.Add(sub)
 
-	return nil
-}
-
-func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
-	b.smu.Lock()
-	defer b.smu.Unlock()
-
-	b.subs.RemoveFromTopic(topic, subscriber.ID())
-
-	// no one listening on this topic anymore.
-	if !b.subs.HasTopic(topic) {
-		b.streams.remove(topic)
-	}
-
-	return nil
+	return sub, nil
 }
 
 func (b *broker) Shutdown(_ context.Context) error {
@@ -187,13 +182,12 @@ func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic) error {
 	}
 
 	for _, h := range handlers {
-		ctx, cancel := context.WithTimeout(h.Ctx, b.options.deliverTimeout)
-		err := h.Handler.Deliver(ctx, topic, msg.Body)
+		ctx, cancel := context.WithTimeout(h.Context(), b.options.deliverTimeout)
+		err := h.Handler().Deliver(ctx, topic, msg.Body)
 		cancel()
 
 		if err != nil {
 			b.options.onSubscribeError(err)
-			// kubemq
 		}
 	}
 

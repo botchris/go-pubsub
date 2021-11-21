@@ -19,11 +19,7 @@ type Broker interface {
 
 	// Subscribe attaches the given Subscriber to the given topic.
 	// This method should noop in case of duplicated subscriptions.
-	Subscribe(ctx context.Context, topic Topic, subscriber Subscriber, option ...SubscribeOption) error
-
-	// Unsubscribe removes the given Subscriber from the specified topic.
-	// This method should noop if the Subscriber is not attached to the topic.
-	Unsubscribe(ctx context.Context, topic Topic, subscriber Subscriber) error
+	Subscribe(ctx context.Context, topic Topic, subscriber Handler, option ...SubscribeOption) (Subscription, error)
 
 	// Shutdown shutdowns all subscribers gracefully.
 	Shutdown(ctx context.Context) error

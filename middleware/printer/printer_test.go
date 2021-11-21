@@ -22,11 +22,11 @@ func TestNewPrinterMiddleware(t *testing.T) {
 		t1 := pubsub.Topic("topic-1")
 		rx := &lockedCounter{}
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
 
-		s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
+		s1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			rx.inc()
 
 			return nil

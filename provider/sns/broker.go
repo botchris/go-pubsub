@@ -36,9 +36,9 @@ type subscription struct {
 //
 // This broker will start running a background goroutine that will poll the SQS
 // queue for new messages. Topics must be firstly created on AWS SNS before
-// starting this broker, and each Topic must be tagged with the "topic-name"
+// starting this broker, and each topic must be tagged with the "topic-name"
 // key on AWS. This is used to hold the name of the topic as seen by the broker
-// implementation (`pubsub.Topic`).
+// implementation (`pubsub.topic`).
 //
 // IMPORTANT: this broker must be used in conjunction with a Codec middleware in
 // order to ensure that the messages are properly encoded and decoded.

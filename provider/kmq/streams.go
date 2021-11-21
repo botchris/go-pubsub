@@ -8,60 +8,71 @@ import (
 )
 
 type streams struct {
-	streams map[pubsub.Topic]struct {
-		ctx    context.Context
-		cancel context.CancelFunc
-	}
-	mu sync.RWMutex
+	streams map[pubsub.Topic]map[string]*stream
+	mu      sync.RWMutex
+}
+
+type stream struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	queue  string
 }
 
 func newStreams() *streams {
 	return &streams{
-		streams: make(map[pubsub.Topic]struct {
-			ctx    context.Context
-			cancel context.CancelFunc
-		}),
+		streams: make(map[pubsub.Topic]map[string]*stream),
 	}
 }
 
-func (s *streams) add(ctx context.Context, topic pubsub.Topic) context.Context {
+func (s *streams) add(ctx context.Context, topic pubsub.Topic, queue string) context.Context {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if hit, ok := s.streams[topic]; ok {
-		return hit.ctx
+	if queues, ok := s.streams[topic]; ok {
+		if st, ok := queues[queue]; ok {
+			return st.ctx
+		}
+	}
+
+	if _, ok := s.streams[topic]; !ok {
+		s.streams[topic] = make(map[string]*stream, 0)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s.streams[topic] = struct {
-		ctx    context.Context
-		cancel context.CancelFunc
-	}{
+	s.streams[topic][queue] = &stream{
 		ctx:    ctx,
 		cancel: cancel,
+		queue:  queue,
 	}
 
 	return ctx
 }
 
-func (s *streams) remove(topic pubsub.Topic) {
+func (s *streams) remove(topic pubsub.Topic, queue string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.streams[topic]; !ok {
+	queues, ok := s.streams[topic]
+	if !ok {
 		return
 	}
 
-	s.streams[topic].cancel()
-	delete(s.streams, topic)
+	if st, ok := queues[queue]; ok {
+		st.cancel()
+		delete(queues, queue)
+	}
 }
 
-func (s *streams) has(topic pubsub.Topic) bool {
+func (s *streams) has(topic pubsub.Topic, queue string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, ok := s.streams[topic]
+	if queues, ok := s.streams[topic]; ok {
+		if _, ok := queues[queue]; ok {
+			return true
+		}
+	}
 
-	return ok
+	return false
 }

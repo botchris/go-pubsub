@@ -19,21 +19,21 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+	broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 
-	s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
+	s1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m MyMessage) error {
 		fmt.Printf("%s -> %+v -> [s1]\n", t, m)
 
 		return nil
 	})
 
-	s2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
+	s2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m *MyMessage) error {
 		fmt.Printf("%s -> %+v -> [s2]\n", t, m)
 
 		return nil
 	})
 
-	s3 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m string) error {
+	s3 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m string) error {
 		fmt.Printf("%s -> %+v -> [s3]\n", t, m)
 
 		return nil

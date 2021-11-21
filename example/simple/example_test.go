@@ -28,7 +28,7 @@ func Test_EndToEnd(t *testing.T) {
 		rx := &lockedCounter{}
 		panics := &lockedCounter{}
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
 		broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
@@ -37,13 +37,13 @@ func Test_EndToEnd(t *testing.T) {
 			return errors.New("panic recovery")
 		})
 
-		s1 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
+		s1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			rx.inc()
 
 			return nil
 		})
 
-		s2 := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
+		s2 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m proto.Message) error {
 			panic("boom")
 		})
 
@@ -77,10 +77,10 @@ func Test_EndToEnd(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		broker := memory.NewBroker(memory.NopSubscriberErrorHandler)
+		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
 		topicID := pubsub.Topic("yolo-2")
 		rx := &lockedCounter{}
-		s := pubsub.NewSubscriber(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
+		s := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
 			rx.inc()
 
 			return nil

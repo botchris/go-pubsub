@@ -44,10 +44,10 @@ func TestSingleBroker(t *testing.T) {
 		consumer2 := &consumer{}
 
 		t.Run("WHEN registering two subscribers to such topic", func(t *testing.T) {
-			sub1 := pubsub.NewSubscriber(consumer1.handle)
+			sub1 := pubsub.NewHandler(consumer1.handle)
 			require.NoError(t, broker.Subscribe(ctx, topic, sub1))
 
-			sub2 := pubsub.NewSubscriber(consumer2.handle)
+			sub2 := pubsub.NewHandler(consumer2.handle)
 			require.NoError(t, broker.Subscribe(ctx, topic, sub2))
 
 			// wait async subscription to take place
@@ -118,11 +118,11 @@ func TestMultiInstanceBroker(t *testing.T) {
 		}()
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		sub1 := pubsub.NewHandler(consumer1.handle)
 		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		sub2 := pubsub.NewHandler(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
 
 		// wait async subscription to take place
@@ -185,11 +185,11 @@ func TestMultiHostBroker(t *testing.T) {
 		}()
 
 		consumer1 := &consumer{}
-		sub1 := pubsub.NewSubscriber(consumer1.handle)
+		sub1 := pubsub.NewHandler(consumer1.handle)
 		require.NoError(t, broker1.Subscribe(ctx, topic, sub1))
 
 		consumer2 := &consumer{}
-		sub2 := pubsub.NewSubscriber(consumer2.handle)
+		sub2 := pubsub.NewHandler(consumer2.handle)
 		require.NoError(t, broker2.Subscribe(ctx, topic, sub2))
 
 		// wait async subscription to take place

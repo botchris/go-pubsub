@@ -10,23 +10,24 @@ import (
 	"sync"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
-// SubscriberErrorHandler used to handle subscribers errors when delivering a
+// SubscriptionErrorHandler used to handle subscribers errors when delivering a
 // message.
-type SubscriberErrorHandler func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscriber, m interface{}, err error)
+type SubscriptionErrorHandler func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error)
 
-// NopSubscriberErrorHandler an empty error handler
-var NopSubscriberErrorHandler = func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscriber, m interface{}, err error) {}
+// NopSubscriptionErrorHandler an empty error handler
+var NopSubscriptionErrorHandler = func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error) {}
 
 type broker struct {
 	topics        map[pubsub.Topic]*topic
-	subErrHandler SubscriberErrorHandler
+	subErrHandler SubscriptionErrorHandler
 	sync.RWMutex
 }
 
 // NewBroker returns a new in-memory broker instance.
-func NewBroker(subErrHandler SubscriberErrorHandler) pubsub.Broker {
+func NewBroker(subErrHandler SubscriptionErrorHandler) pubsub.Broker {
 	return &broker{
 		topics:        make(map[pubsub.Topic]*topic),
 		subErrHandler: subErrHandler,
@@ -47,27 +48,39 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	return nil
 }
 
-func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
+func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.openTopic(topic).subscribe(subscriber)
-
-	return nil
-}
-
-func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
-	b.Lock()
-	defer b.Unlock()
-
-	t := b.openTopic(topic)
-	t.unsubscribe(subscriber)
-
-	if t.size() == 0 {
-		delete(b.topics, topic)
+	opts := pubsub.NewSubscribeOptions()
+	for _, o := range option {
+		o(opts)
 	}
 
-	return nil
+	sid := uuid.New()
+	sub := &subscription{
+		id:      sid,
+		topic:   topic,
+		handler: handler,
+		options: *opts,
+		unsub: func() error {
+			b.Lock()
+			defer b.Unlock()
+
+			t := b.openTopic(topic)
+			t.unsubscribe(sid)
+
+			if t.size() == 0 {
+				delete(b.topics, topic)
+			}
+
+			return nil
+		},
+	}
+
+	b.openTopic(topic).subscribe(sub)
+
+	return sub, nil
 }
 
 func (b *broker) Shutdown(_ context.Context) error {

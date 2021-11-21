@@ -8,7 +8,7 @@ import (
 // queue is a queue implementation with round-robin selection algorithm.
 type queue struct {
 	name      queueName
-	items     []*Subscription
+	items     []StoppableSubscription
 	locations map[string]int
 	next      uint32
 	mu        sync.RWMutex
@@ -19,16 +19,16 @@ type queueName string
 func newQueue(name string) *queue {
 	return &queue{
 		name:      queueName(name),
-		items:     make([]*Subscription, 0),
+		items:     make([]StoppableSubscription, 0),
 		locations: make(map[string]int),
 	}
 }
 
-func (r *queue) add(subscription *Subscription) {
+func (r *queue) add(subscription StoppableSubscription) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	id := subscription.Handler.ID()
+	id := subscription.ID()
 
 	if at, ok := r.locations[id]; ok {
 		r.items[at] = subscription
@@ -53,11 +53,11 @@ func (r *queue) remove(id string) {
 	delete(r.locations, id)
 }
 
-func (r *queue) all() []*Subscription {
+func (r *queue) all() []StoppableSubscription {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	out := make([]*Subscription, len(r.items))
+	out := make([]StoppableSubscription, len(r.items))
 	copy(out, r.items)
 
 	return out
@@ -72,7 +72,7 @@ func (r *queue) empty() bool {
 
 // pick returns the next subscription. It may return nil if there are no
 // subscriptions.
-func (r *queue) pick() *Subscription {
+func (r *queue) pick() StoppableSubscription {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

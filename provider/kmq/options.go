@@ -13,7 +13,6 @@ type options struct {
 	serverHost       string
 	serverPort       int
 	clientID         string
-	groupID          string
 	onStreamError    func(error)
 	onSubscribeError func(error)
 	deliverTimeout   time.Duration
@@ -56,17 +55,8 @@ func WithClientID(clientID string) Option {
 	}
 }
 
-// WithGroupID sets the group ID for receiving messages. Subscriptions under the
-// same groupID share the messages in a round-robin fashion. Required.
-func WithGroupID(groupID string) Option {
-	return fnOption{
-		f: func(o *options) {
-			o.groupID = groupID
-		},
-	}
-}
-
-// WithStreamErrorHandler sets the function to be called when an error occurs when streaming events to KubeMQ (publish).
+// WithStreamErrorHandler sets the function to be called when an error occurs
+// when streaming events to KubeMQ (publish).
 func WithStreamErrorHandler(f func(error)) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -75,7 +65,8 @@ func WithStreamErrorHandler(f func(error)) Option {
 	}
 }
 
-// WithSubscribeErrorHandler sets the function to be called when an error occurs when receiving a message from KubeMQ.
+// WithSubscribeErrorHandler sets the function to be called when an error occurs
+// when receiving a message from KubeMQ.
 func WithSubscribeErrorHandler(f func(error)) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -84,7 +75,8 @@ func WithSubscribeErrorHandler(f func(error)) Option {
 	}
 }
 
-// WithDeliveryTimeout sets the max execution time a subscriber has to handle a message. Default: 5s
+// WithDeliveryTimeout sets the max execution time a subscriber has to handle a
+// message. Default: 5s
 func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{
 		f: func(o *options) {

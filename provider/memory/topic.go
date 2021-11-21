@@ -10,12 +10,12 @@ import (
 // topic defines a in-memory topic to which subscriber may subscribe to
 type topic struct {
 	id          pubsub.Topic
-	subscribers map[string]pubsub.Subscriber
+	subscribers map[string]*subscription
 	sync.RWMutex
 }
 
 type publishResult struct {
-	subscriber pubsub.Subscriber
+	subscriber pubsub.Subscription
 	err        error
 }
 
@@ -23,7 +23,7 @@ type publishResult struct {
 func newTopic(id pubsub.Topic) *topic {
 	return &topic{
 		id:          id,
-		subscribers: map[string]pubsub.Subscriber{},
+		subscribers: map[string]*subscription{},
 	}
 }
 
@@ -41,7 +41,7 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 			err:        nil,
 		}
 
-		if err := subscriber.Deliver(ctx, t.id, m); err != nil {
+		if err := subscriber.handler.Deliver(ctx, t.id, m); err != nil {
 			result.err = err
 		}
 
@@ -59,7 +59,7 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 }
 
 // subscribe attaches to this topic the given subscriber, attaching multiple times the same subscriber has no effects.
-func (t *topic) subscribe(s pubsub.Subscriber) {
+func (t *topic) subscribe(s *subscription) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -67,11 +67,11 @@ func (t *topic) subscribe(s pubsub.Subscriber) {
 }
 
 // unsubscribe detaches from this topic the given subscriber, will nop if subscriber is not present.
-func (t *topic) unsubscribe(s pubsub.Subscriber) {
+func (t *topic) unsubscribe(id string) {
 	t.Lock()
 	defer t.Unlock()
 
-	delete(t.subscribers, s.ID())
+	delete(t.subscribers, id)
 }
 
 // size how many subscribers are currently attached to this topic

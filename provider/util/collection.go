@@ -29,16 +29,19 @@ func NewSubscriptionsCollection() *SubscriptionsCollection {
 }
 
 // Add registers a new subscription.
-func (s *SubscriptionsCollection) Add(subscription *Subscription) {
+func (s *SubscriptionsCollection) Add(subscription StoppableSubscription) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if subscription.Options.Queue == "" {
-		if _, ok := s.wildcard[subscription.Topic]; !ok {
-			s.wildcard[subscription.Topic] = newQueue("*")
+	topic := subscription.Topic()
+	q := subscription.Options().Queue
+
+	if q == "" {
+		if _, ok := s.wildcard[topic]; !ok {
+			s.wildcard[topic] = newQueue("*")
 		}
 
-		s.wildcard[subscription.Topic].add(subscription)
+		s.wildcard[subscription.Topic()].add(subscription)
 
 		return
 	}
@@ -47,15 +50,15 @@ func (s *SubscriptionsCollection) Add(subscription *Subscription) {
 		s.byQueue = make(map[pubsub.Topic]map[queueName]*queue)
 	}
 
-	if _, ok := s.byQueue[subscription.Topic]; !ok {
-		s.byQueue[subscription.Topic] = make(map[queueName]*queue)
+	if _, ok := s.byQueue[topic]; !ok {
+		s.byQueue[topic] = make(map[queueName]*queue)
 	}
 
-	if _, ok := s.byQueue[subscription.Topic][queueName(subscription.Options.Queue)]; !ok {
-		s.byQueue[subscription.Topic][queueName(subscription.Options.Queue)] = newQueue(subscription.Options.Queue)
+	if _, ok := s.byQueue[topic][queueName(subscription.Options().Queue)]; !ok {
+		s.byQueue[topic][queueName(q)] = newQueue(q)
 	}
 
-	s.byQueue[subscription.Topic][queueName(subscription.Options.Queue)].add(subscription)
+	s.byQueue[topic][queueName(q)].add(subscription)
 }
 
 // RemoveFromTopic unregisters the specified subscriber id from the specified
@@ -114,11 +117,11 @@ func (s *SubscriptionsCollection) HasTopic(topic pubsub.Topic) bool {
 
 // Receptors retrieves a list of subscriptions candidates to handle an arriving
 // message to the specified topic.
-func (s *SubscriptionsCollection) Receptors(topic pubsub.Topic) []*Subscription {
+func (s *SubscriptionsCollection) Receptors(topic pubsub.Topic) []StoppableSubscription {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var receptors []*Subscription
+	var receptors []StoppableSubscription
 
 	if _, ok := s.byQueue[topic]; ok {
 		for _, q := range s.byQueue[topic] {

@@ -29,13 +29,13 @@ func TestNewBroker(t *testing.T) {
 		q1 := &queue{}
 		q2 := &queue{}
 
-		sub1 := pubsub.NewSubscriber(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
+		sub1 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
 			q1.add(m.(string))
 
 			return nil
 		})
 
-		sub2 := pubsub.NewSubscriber(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
+		sub2 := pubsub.NewHandler(func(ctx context.Context, _ pubsub.Topic, m interface{}) error {
 			q2.add(m.(string))
 
 			return nil

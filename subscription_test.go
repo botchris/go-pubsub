@@ -42,17 +42,17 @@ func Test_Subscriber(t *testing.T) {
 		{
 			name:        "invalid context",
 			handlerFunc: func(ctx interface{}, t pubsub.Topic, m *CompoundMessage) error { return nil },
-			panic:       pubsub.ErrSubscriberInputNoContext,
+			panic:       pubsub.ErrHandlerInputNoContext,
 		},
 		{
 			name:        "no return",
 			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) {},
-			panic:       pubsub.ErrSubscriberOutputLengthMissMatch,
+			panic:       pubsub.ErrHandlerOutputLengthMissMatch,
 		},
 		{
 			name:        "returns not of error kind",
 			handlerFunc: func(ctx context.Context, t pubsub.Topic, m *CompoundMessage) *CompoundMessage { return nil },
-			panic:       pubsub.ErrSubscriberOutputNoError,
+			panic:       pubsub.ErrHandlerOutputNoError,
 		},
 		{
 			name:        "returns compound error interface",
@@ -74,7 +74,7 @@ func Test_Subscriber(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			operation := func() {
-				pubsub.NewSubscriber(tt.handlerFunc)
+				pubsub.NewHandler(tt.handlerFunc)
 			}
 
 			if tt.panic != nil {
