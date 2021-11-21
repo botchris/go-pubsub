@@ -15,6 +15,15 @@ type SubscribeOptions struct {
 	Metadata map[string]interface{}
 }
 
+// NewSubscribeOptions builds a new SubscribeOptions.
+func NewSubscribeOptions() *SubscribeOptions {
+	return &SubscribeOptions{
+		AutoAck:  true,
+		Metadata: make(map[string]interface{}),
+	}
+}
+
+// SubscribeOption is a function that configures SubscribeOptions.
 type SubscribeOption func(*SubscribeOptions)
 
 // WithQueue sets the name of the queue to share messages on.

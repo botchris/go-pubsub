@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"errors"
 
 	"github.com/botchris/go-pubsub"
 )
@@ -34,16 +35,33 @@ type Subscription struct {
 func NewSubscription(
 	ctx context.Context,
 	topic pubsub.Topic,
-	options *pubsub.SubscribeOptions,
 	handler pubsub.Subscriber,
-) *Subscription {
+	option ...pubsub.SubscribeOption,
+) (*Subscription, error) {
+	if ctx == nil {
+		return nil, errors.New("subscription context cannot be nil")
+	}
+
+	if topic.String() == "" {
+		return nil, errors.New("subscription topic cannot be empty")
+	}
+
+	if handler == nil {
+		return nil, errors.New("subscription handler cannot be nil")
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
+
+	opts := pubsub.NewSubscribeOptions()
+	for _, o := range option {
+		o(opts)
+	}
 
 	return &Subscription{
 		Ctx:     ctx,
 		Stop:    cancel,
 		Topic:   topic,
-		Options: options,
+		Options: opts,
 		Handler: handler,
-	}
+	}, nil
 }

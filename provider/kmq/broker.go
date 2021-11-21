@@ -19,9 +19,10 @@ type broker struct {
 	options *options
 	sender  func(msg *kubemq.Event) error
 
-	subs    *util.SubscribersCollection
+	// guards subscribe/unsubscribe operations:
+	smu     sync.RWMutex
+	subs    *util.SubscriptionsCollection
 	streams *streams
-	mu      sync.RWMutex
 }
 
 // NewBroker creates a new broker instance that uses KubeMQ over gRPC streams.
@@ -88,7 +89,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		client:  client,
 		options: opts,
 		sender:  sender,
-		subs:    util.NewSubscribersCollection(),
+		subs:    util.NewSubscriptionsCollection(),
 		streams: newStreams(),
 	}
 
@@ -113,14 +114,16 @@ func (b *broker) Publish(_ context.Context, topic pubsub.Topic, m interface{}) e
 }
 
 func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber, option ...pubsub.SubscribeOption) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.smu.Lock()
+	defer b.smu.Unlock()
 
 	req := &kubemq.EventsSubscription{
 		Channel:  topic.String(),
 		ClientId: b.options.clientID,
 		Group:    b.options.groupID,
 	}
+
+	streamCreated := false
 
 	if !b.streams.has(topic) {
 		ctx := b.streams.add(b.ctx, topic)
@@ -139,22 +142,27 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, subscriber pub
 		if err != nil {
 			return err
 		}
+
+		streamCreated = true
 	}
 
-	opts := &pubsub.SubscribeOptions{}
-	for _, o := range option {
-		o(opts)
+	sub, err := util.NewSubscription(b.ctx, topic, subscriber, option...)
+	if err != nil {
+		if streamCreated {
+			b.streams.remove(topic)
+		}
+
+		return err
 	}
 
-	sub := util.NewSubscription(b.ctx, topic, opts, subscriber)
 	b.subs.Add(sub)
 
 	return nil
 }
 
 func (b *broker) Unsubscribe(_ context.Context, topic pubsub.Topic, subscriber pubsub.Subscriber) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.smu.Lock()
+	defer b.smu.Unlock()
 
 	b.subs.RemoveFromTopic(topic, subscriber.ID())
 
@@ -185,6 +193,7 @@ func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic) error {
 
 		if err != nil {
 			b.options.onSubscribeError(err)
+			// kubemq
 		}
 	}
 
