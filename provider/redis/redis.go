@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -39,7 +38,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		groupID:                uuid.New(),
 		logger:                 noopLogger{},
-		consumerTimeout:        10 * time.Second,
+		deliverTimeout:         10 * time.Second,
 		readGroupTimeout:       10 * time.Second,
 		pendingIdleTime:        60 * time.Second,
 		janitorConsumerTimeout: 24 * time.Hour,
@@ -166,10 +165,11 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 
 	go func() {
 		defer func() {
-			//logger.Infof("Deleting consumer %s %s %s", topic, group, consumerName)
+			r.options.logger.Infof("Deleting consumer %s %s %s", topic, r.options.groupID, consumerName)
+
 			// try to clean up the consumer
 			err := callWithRetry(func() error {
-				return r.redisClient.XGroupDelConsumer(context.Background(), topic, r.options.groupID, consumerName).Err()
+				return r.redisClient.XGroupDelConsumer(sub.ctx, topic, r.options.groupID, consumerName).Err()
 			}, 2)
 
 			if err != nil {
@@ -203,7 +203,8 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 			}, 2)
 
 			if err != nil && err != redis.Nil {
-				//logger.Errorf("Error finding pending messages %s", err)
+				r.options.logger.Errorf("Error finding pending messages %s", err)
+
 				return
 			}
 
@@ -231,13 +232,15 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 			}, 2)
 
 			if err != nil {
-				//logger.Errorf("Error claiming message %s", err)
+				r.options.logger.Errorf("Error claiming message %s", err)
+
 				return
 			}
 
 			msgs := claimCmd.Val()
 			if err := r.processMessages(msgs, sub, t, 2); err != nil {
 				r.options.logger.Errorf("Error reprocessing message %s", err)
+
 				return
 			}
 
@@ -266,6 +269,7 @@ func (r *broker) consume(t pubsub.Topic, sub *subscription) error {
 
 			if err != nil && !errors.Is(err, redis.Nil) {
 				r.options.logger.Errorf("Error reading from stream %s", err)
+
 				if !isTimeoutError(err) {
 					return
 				}
@@ -311,8 +315,8 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 		r.attempts[attemptsKey], _ = strconv.Atoi(v.Values["attempt"].(string))
 		r.mu.Unlock()
 
-		cctx, cancel := context.WithTimeout(sub.ctx, r.options.consumerTimeout)
-		dErr := sub.subscriber.Deliver(cctx, t, ev)
+		dCtx, cancel := context.WithTimeout(sub.ctx, r.options.deliverTimeout)
+		dErr := sub.subscriber.Deliver(dCtx, t, ev)
 		cancel()
 
 		ack := func() error {
@@ -334,22 +338,23 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub *subscription, t pub
 			r.mu.RUnlock()
 
 			if retryLimit > 0 && attempt > retryLimit {
-				// don't readd
+				// don't read
 				r.mu.Lock()
 				delete(r.attempts, attemptsKey)
 				r.mu.Unlock()
+
 				return nil
 			}
 
-			bytes, err := json.Marshal(ev)
-			if err != nil {
-				return fmt.Errorf("%w: Error encoding event", err)
-			}
-
-			return r.redisClient.XAdd(context.Background(), &redis.XAddArgs{
-				Stream: topic,
-				Values: map[string]interface{}{"event": string(bytes), "attempt": attempt + 1},
-			}).Err()
+			return r.redisClient.XAdd(sub.ctx,
+				&redis.XAddArgs{
+					Stream: topic,
+					Values: map[string]interface{}{
+						"event":   string(ev),
+						"attempt": attempt + 1,
+					},
+				},
+			).Err()
 		}
 
 		if dErr == nil {

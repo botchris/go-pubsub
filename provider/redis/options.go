@@ -9,7 +9,7 @@ type options struct {
 	address                string
 	groupID                string
 	logger                 Logger
-	consumerTimeout        time.Duration
+	deliverTimeout         time.Duration
 	readGroupTimeout       time.Duration
 	pendingIdleTime        time.Duration
 	janitorConsumerTimeout time.Duration
@@ -39,11 +39,11 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
-// WithConsumerTimeout how long to wait trying to send event to a consumer's
-// channel until we consider it has timed out. Default: 10s
-func WithConsumerTimeout(consumerTimeout time.Duration) Option {
+// WithDeliverTimeout how long to wait trying to send a message to a subscriber
+// until we consider it has timed out. Default: 10s
+func WithDeliverTimeout(to time.Duration) Option {
 	return func(opts *options) {
-		opts.consumerTimeout = consumerTimeout
+		opts.deliverTimeout = to
 	}
 }
 
