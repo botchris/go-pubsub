@@ -30,13 +30,11 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	t := b.openTopic(topic)
 	b.Unlock()
 
-	go func() {
-		for _, result := range t.publish(ctx, m) {
-			if result.err != nil {
-				continue
-			}
+	for _, result := range t.publish(ctx, m) {
+		if result.err != nil {
+			continue
 		}
-	}()
+	}
 
 	return nil
 }
