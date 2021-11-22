@@ -42,7 +42,7 @@ func Test_Broker_Publish(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a broker holding one subscriber WHEN publishing to topic THEN subscriber receives the message", func(t *testing.T) {
+	t.Run("GIVEN a broker holding one subscription WHEN publishing to topic THEN subscription receives the message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topicID := pubsub.Topic("yolo")
@@ -62,7 +62,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a broker holding one subscriber on multiple topic WHEN publishing to one topic THEN subscriber receives only one message", func(t *testing.T) {
+	t.Run("GIVEN a broker holding one subscription on multiple topic WHEN publishing to one topic THEN subscription receives only one message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topicA := pubsub.Topic("yolo-1")
@@ -86,7 +86,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a broker holding one subscriber on multiple topic WHEN publishing to all topics THEN subscriber receives multiple messages", func(t *testing.T) {
+	t.Run("GIVEN a broker holding one subscription on multiple topic WHEN publishing to all topics THEN subscription receives multiple messages", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topics := []pubsub.Topic{"yolo-1", "yolo-2"}
@@ -111,7 +111,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a subscriber for a typed message WHEN publishing a message matching such type THEN subscriber receives the message", func(t *testing.T) {
+	t.Run("GIVEN a subscription for a typed message WHEN publishing a message matching such type THEN subscription receives the message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topic := pubsub.Topic("yolo-1")
@@ -133,7 +133,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a subscriber for a map-type message WHEN publishing a message matching such type THEN subscriber receives the message", func(t *testing.T) {
+	t.Run("GIVEN a subscription for a map-type message WHEN publishing a message matching such type THEN subscription receives the message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topic := pubsub.Topic("yolo-1")
@@ -159,7 +159,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a subscriber to a concrete pointer type WHEN publishing a messages not of that type THEN subscriber receives only desired type of the message", func(t *testing.T) {
+	t.Run("GIVEN a subscription to a concrete pointer type WHEN publishing a messages not of that type THEN subscription receives only desired type of the message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topic := pubsub.Topic("yolo-1")
@@ -181,7 +181,7 @@ func Test_Broker_Publish(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("GIVEN a subscriber to an interface WHEN publishing a message implementing such interface THEN subscriber receives the message", func(t *testing.T) {
+	t.Run("GIVEN a subscription to an interface WHEN publishing a message implementing such interface THEN subscription receives the message", func(t *testing.T) {
 		broker := memory.NewBroker()
 		rx := &lockedCounter{}
 		topic := pubsub.Topic("yolo-1")

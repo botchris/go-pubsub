@@ -16,7 +16,7 @@ import (
 // All methods should be goroutine safe.
 type Strategy interface {
 	// Proceed is called before every message is published or delivered to
-	// subscriber. If proceed returns a positive, non-zero integer, the retryer
+	// handler. If proceed returns a positive, non-zero integer, the retryer
 	// will back off by the provided duration.
 	//
 	// A message and a topic are provided, they may be ignored.

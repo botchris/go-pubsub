@@ -62,7 +62,7 @@ type Broker interface {
 
 	// Subscribe attaches the given handler to the given topic.
 	// The same handler could be attached multiple times to the same topic.
-	Subscribe(ctx context.Context, topic Topic, subscriber Handler, option ...SubscribeOption) (Subscription, error)
+	Subscribe(ctx context.Context, topic Topic, handler Handler, option ...SubscribeOption) (Subscription, error)
 
 	// Shutdown gracefully shutdowns all subscriptions.
 	Shutdown(ctx context.Context) error

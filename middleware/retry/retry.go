@@ -15,7 +15,7 @@ type middleware struct {
 }
 
 // NewRetryMiddleware returns a middleware that retries messages that fail to
-// be published to topics or delivered to subscribers.
+// be published to topics or delivered to handlers.
 //
 // Strategies must be configured accordingly, so they can retry as long as
 // operation contexts keeps alive. For instance, when publishing a message, the

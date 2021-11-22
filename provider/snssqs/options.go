@@ -55,7 +55,7 @@ func WithSQSQueueURL(sqsQueueURL string) Option {
 	}
 }
 
-// WithDeliveryTimeout sets the max execution time a subscriber has to handle a
+// WithDeliveryTimeout sets the max execution time a handler has to handle a
 // message. Default: 5s
 func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{

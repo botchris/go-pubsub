@@ -61,14 +61,14 @@ func (s *SubscriptionsCollection) Add(subscription pubsub.StoppableSubscription)
 	s.byQueue[topic][queueName(q)].add(subscription)
 }
 
-// RemoveFromTopic unregisters the specified subscriber id from the specified
+// RemoveFromTopic unregisters the specified handler id from the specified
 // topic.
 //
-// Note that the same subscriber id can be registered to multiple topics, and
+// Note that the same subscription id can be registered to multiple topics, and
 // under multiple queues for the same topic. This method will unregister from
 // every queue for the specified topic.
 //
-// When the last subscriber is removed from a topic, the topic will be removed
+// When the last subscription is removed from a topic, the topic will be removed
 // as well, so calls to `HasTopic` will return false.
 func (s *SubscriptionsCollection) RemoveFromTopic(topic pubsub.Topic, id string) {
 	s.mu.Lock()
@@ -138,7 +138,7 @@ func (s *SubscriptionsCollection) Receptors(topic pubsub.Topic) []pubsub.Stoppab
 	return receptors
 }
 
-// GracefulStop purges this collection and signals all subscribers to stop.
+// GracefulStop purges this collection and signals all subscriptions to stop.
 func (s *SubscriptionsCollection) GracefulStop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

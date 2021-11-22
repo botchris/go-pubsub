@@ -16,7 +16,7 @@ type middleware struct {
 }
 
 // NewRecoveryMiddleware returns a new middleware that recovers from panics when
-// publishing to topics or delivering to subscribers.
+// publishing to topics or delivering to handlers.
 func NewRecoveryMiddleware(parent pubsub.Broker, handler HandlerFunc) pubsub.Broker {
 	return &middleware{
 		Broker:  parent,

@@ -42,8 +42,6 @@ func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}
 	return s.Handler.Deliver(ctx, topic, msg)
 }
 
-// decodeFor attempts to dynamically decode a raw message for provided
-// subscriber using the given decoder function.
 func (s *handler) decodeFor(raw []byte, mType reflect.Type, mKind reflect.Kind) (interface{}, error) {
 	base := mType
 
