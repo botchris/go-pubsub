@@ -17,7 +17,7 @@ func TestNewBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a redis broker with two subscriber in the same group", func(t *testing.T) {
+	t.Run("GIVEN a redis broker with two subscriptions in the same group", func(t *testing.T) {
 		groupID := "test"
 		broker := prepareBroker(ctx, t)
 		messages := []string{
@@ -55,7 +55,7 @@ func TestNewBroker(t *testing.T) {
 				require.NoError(t, broker.Publish(ctx, "test", message))
 			}
 
-			t.Run("THEN three messages are eventually received across subscribers", func(t *testing.T) {
+			t.Run("THEN three messages are eventually received across subscriptions", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return q1.merge(q2).hasExactlyOnce(messages...)
 				}, 5*time.Second, time.Millisecond*100)

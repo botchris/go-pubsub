@@ -30,7 +30,7 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
-// WithDeliverTimeout how long to wait trying to send a message to a subscriber
+// WithDeliverTimeout how long to wait trying to send a message to a handler
 // until we consider it has timed out. Default: 10s
 func WithDeliverTimeout(to time.Duration) Option {
 	return func(opts *options) {

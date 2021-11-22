@@ -2,7 +2,7 @@ package pubsub
 
 // SubscribeOptions describes the options for a subscription action.
 type SubscribeOptions struct {
-	// Group subscribers with the same group name will create a shared
+	// Group subscriptions with the same group name will create a shared
 	// subscription where each one receives a subset of the published messages.
 	Group string
 

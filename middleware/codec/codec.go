@@ -22,21 +22,20 @@ type middleware struct {
 // NewCodecMiddleware creates a new Codec middleware that encodes/decodes
 // messages when publishing and delivering.
 //
-// Publishing:
+// When Publishing:
 // Intercepts each message and encodes it before publishing to underlying broker.
 //
-// Subscribers:
-// Intercepts each message before it gets delivered to subscribers and decodes
-// it to subscriber's accepted type assuming that the incoming message is a
-// byte slice.
+// When Delivering:
+// Intercepts each message before it gets delivered to handlers and decodes it
+// to handler's accepted type assuming that the incoming message is a byte slice.
 //
 // Decoder function is invoked once for each desired type, and it takes
 // two arguments:
 //
 // 1. The raw message as a byte slice
-// 2. A pointer to a variable of type of subscriber's desired type.
+// 2. A pointer to a variable of type of handler's desired type.
 //
-// For example, given the following subscribers:
+// For example, given the following handler functions:
 //
 //     S1: func (ctx context.Context, msg string) error
 //     S2: func (ctx context.Context, msg string) error
@@ -49,13 +48,13 @@ type middleware struct {
 //
 // If decoder is unable to convert the given byte slice into the desired type
 // (string or map in the above example), and error must be returned. This will
-// prevent from delivering the message to underlying subscriber.
+// prevent from delivering the message to underlying handler.
 //
 // NOTE: message decoding are expensive operations.
 // In the other hand, interceptors are applied each time a message is delivered
-// to subscribers. This may produce unnecessary decoding operation when the same
-// message is delivered to multiple subscribers. To address this issue, this
-// interceptor uses a small LRU cache of each seen decoded message.
+// to handlers. This may produce unnecessary decoding operation when the same
+// message is delivered to multiple handlers/subscriptions. To address this
+// issue, this interceptor uses a small LRU cache of each seen decoded message.
 func NewCodecMiddleware(broker pubsub.Broker, codec Codec) pubsub.Broker {
 	cache, _ := lru.New(256)
 

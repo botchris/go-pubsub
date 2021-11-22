@@ -85,7 +85,7 @@ func WithSubscribeErrorHandler(f func(error)) Option {
 	}
 }
 
-// WithDeliveryTimeout sets the max execution time a subscriber has to handle a
+// WithDeliveryTimeout sets the max execution time a handler has to process a
 // message. Default: 5s
 func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{

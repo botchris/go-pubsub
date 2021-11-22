@@ -67,11 +67,11 @@ func TestPublishInterceptor(t *testing.T) {
 	})
 }
 
-func TestSubscriberInterceptor(t *testing.T) {
+func TestDeliveryInterception(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	t.Run("GIVEN memory broker with an exponential backoff delivery and a subscriber that works once every 5 calls", func(t *testing.T) {
+	t.Run("GIVEN memory broker with an exponential backoff delivery and a handler that works once every 5 calls", func(t *testing.T) {
 		calls := 0
 		worksEvery := 5
 		handler := func(_ context.Context, t pubsub.Topic, m string) error {
@@ -98,10 +98,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 		_, err := broker.Subscribe(ctx, topic, h1)
 		require.NoError(t, err)
 
-		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
+		t.Run("WHEN publishing a message to such handler", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, topic, "message"))
 
-			t.Run("THEN subscriber eventually receives the message after 5 attempts", func(t *testing.T) {
+			t.Run("THEN handler eventually receives the message after 5 attempts", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return calls >= worksEvery
 				}, 5*time.Second, 100*time.Millisecond)
@@ -109,7 +109,7 @@ func TestSubscriberInterceptor(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN memory broker with a breaker delivery and a subscriber that works once every 5 calls", func(t *testing.T) {
+	t.Run("GIVEN memory broker with a breaker delivery and a handler that works once every 5 calls", func(t *testing.T) {
 		calls := 0
 		worksEvery := 5
 		handler := func(_ context.Context, t pubsub.Topic, m string) error {
@@ -131,10 +131,10 @@ func TestSubscriberInterceptor(t *testing.T) {
 		_, err := broker.Subscribe(ctx, topic, h1)
 		require.NoError(t, err)
 
-		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
+		t.Run("WHEN publishing a message to such handler", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, topic, "message"))
 
-			t.Run("THEN subscriber eventually receives the message after 5 attempts and a pause of 1s", func(t *testing.T) {
+			t.Run("THEN handler eventually receives the message after 5 attempts and a pause of 1s", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return calls >= worksEvery
 				}, 5*time.Second, 100*time.Millisecond)

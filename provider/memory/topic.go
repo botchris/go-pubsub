@@ -7,41 +7,40 @@ import (
 	"github.com/botchris/go-pubsub"
 )
 
-// topic defines a in-memory topic to which subscriber may subscribe to
+// topic defines an in-memory topic to which handlers may subscribe to
 type topic struct {
-	id          pubsub.Topic
-	subscribers map[string]pubsub.Subscription
+	id            pubsub.Topic
+	subscriptions map[string]pubsub.Subscription
 	sync.RWMutex
 }
 
 type publishResult struct {
-	subscriber pubsub.Subscription
-	err        error
+	subscription pubsub.Subscription
+	err          error
 }
 
 // newTopic creates a new topic
 func newTopic(id pubsub.Topic) *topic {
 	return &topic{
-		id:          id,
-		subscribers: map[string]pubsub.Subscription{},
+		id:            id,
+		subscriptions: map[string]pubsub.Subscription{},
 	}
 }
 
-// publish sends the given message to each subscriber of this topic
+// publish sends the given message to each handler of this topic
 func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 	t.RLock()
 	defer t.RUnlock()
 
 	var errs sync.Map
 
-	for _, s := range t.subscribers {
-		subscriber := s
+	for _, s := range t.subscriptions {
 		result := &publishResult{
-			subscriber: subscriber,
-			err:        nil,
+			subscription: s,
+			err:          nil,
 		}
 
-		if err := subscriber.Handler().Deliver(ctx, t.id, m); err != nil {
+		if err := s.Handler().Deliver(ctx, t.id, m); err != nil {
 			result.err = err
 		}
 
@@ -58,26 +57,28 @@ func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 	return out
 }
 
-// subscribe attaches to this topic the given subscriber, attaching multiple times the same subscriber has no effects.
+// subscribe attaches to this topic the given subscription, attaching multiple
+// times the same subscription has no effects.
 func (t *topic) subscribe(s pubsub.Subscription) {
 	t.Lock()
 	defer t.Unlock()
 
-	t.subscribers[s.ID()] = s
+	t.subscriptions[s.ID()] = s
 }
 
-// unsubscribe detaches from this topic the given subscriber, will nop if subscriber is not present.
+// unsubscribe detaches from this topic the given subscription id, will nop if
+// handler is not present.
 func (t *topic) unsubscribe(id string) {
 	t.Lock()
 	defer t.Unlock()
 
-	delete(t.subscribers, id)
+	delete(t.subscriptions, id)
 }
 
-// size how many subscribers are currently attached to this topic
+// size how many subscriptions are currently attached to this topic
 func (t *topic) size() int {
 	t.RLock()
 	defer t.RUnlock()
 
-	return len(t.subscribers)
+	return len(t.subscriptions)
 }

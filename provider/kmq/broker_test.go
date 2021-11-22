@@ -89,7 +89,7 @@ func TestSingleBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a broker with two subscribers to the same topic but different groups", func(t *testing.T) {
+	t.Run("GIVEN a broker with two subscriptions to the same topic but different groups", func(t *testing.T) {
 		clientID := "test-client"
 		topic := pubsub.Topic("test-topic")
 		broker, err := prepareJSONBroker(ctx, clientID)
@@ -121,7 +121,7 @@ func TestSingleBroker(t *testing.T) {
 				require.NoError(t, broker.Publish(ctx, topic, m))
 			}
 
-			t.Run("THEN both subscribers eventually receives the same messages", func(t *testing.T) {
+			t.Run("THEN both subscriptions eventually receives the same messages", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(msgs...) && consumer2.received().hasExactlyOnce(msgs...)
 				}, 3*time.Second, time.Millisecond*100)
@@ -134,7 +134,7 @@ func TestQueue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a broker with two subscriber sharing the same queue", func(t *testing.T) {
+	t.Run("GIVEN a broker with two subscriptions sharing the same queue", func(t *testing.T) {
 		clientID := "test-client"
 		gid := uuid.New()
 
@@ -170,7 +170,7 @@ func TestQueue(t *testing.T) {
 				require.NoError(t, broker.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN all messages are eventually received sharded across subscribers", func(t *testing.T) {
+			t.Run("THEN all messages are eventually received sharded across subscriptions", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					r1 := consumer1.received()
 					r2 := consumer2.received()
@@ -187,7 +187,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN two brokers with the same id and with one subscriber each to the same topic", func(t *testing.T) {
+	t.Run("GIVEN two brokers with the same id and with one subscription each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
 		gid := uuid.New()
 
@@ -227,7 +227,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 				require.NoError(t, broker1.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN eventually all messages are received across both subscribers", func(t *testing.T) {
+			t.Run("THEN eventually all messages are received across both subscriptions", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					r1 := consumer1.received()
 					r2 := consumer2.received()
@@ -244,7 +244,7 @@ func TestMultiHostBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN two brokers with the distinct ids and with one subscriber each to the same topic", func(t *testing.T) {
+	t.Run("GIVEN two brokers with the distinct ids and with one subscription each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
 		broker1, err := prepareJSONBroker(ctx, clientID)
 		require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestMultiHostBroker(t *testing.T) {
 				require.NoError(t, broker1.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN eventually all messages are received across both subscribers", func(t *testing.T) {
+			t.Run("THEN eventually all messages are received across both subscriptions", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					r1 := consumer1.received()
 					r2 := consumer2.received()

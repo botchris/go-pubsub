@@ -179,12 +179,12 @@ func (b *broker) Shutdown(_ context.Context) error {
 }
 
 func (b *broker) handleRcv(msg *kubemq.Event, topic pubsub.Topic) error {
-	subscribers := b.subs.Receptors(topic)
-	if len(subscribers) == 0 {
+	subscriptions := b.subs.Receptors(topic)
+	if len(subscriptions) == 0 {
 		return nil
 	}
 
-	for _, s := range subscribers {
+	for _, s := range subscriptions {
 		ctx, cancel := context.WithTimeout(s.Context(), b.options.deliverTimeout)
 		err := s.Handler().Deliver(ctx, topic, msg.Body)
 		cancel()

@@ -43,7 +43,7 @@ func TestSingleBroker(t *testing.T) {
 		consumer1 := &consumer{}
 		consumer2 := &consumer{}
 
-		t.Run("WHEN registering two subscribers to such topic", func(t *testing.T) {
+		t.Run("WHEN registering two subscriptions to such topic", func(t *testing.T) {
 			h1 := pubsub.NewHandler(consumer1.handle)
 			_, err = broker.Subscribe(ctx, topic, h1)
 			require.NoError(t, err)
@@ -75,7 +75,7 @@ func TestSingleBroker(t *testing.T) {
 				require.NoError(t, broker.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
+			t.Run("THEN subscriptions of such topic eventually receives the messages only once", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
 				}, 10*time.Second, time.Millisecond*100)
@@ -93,7 +93,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a sns topic and two brokers attached to the same sqs queue with one subscriber each", func(t *testing.T) {
+	t.Run("GIVEN a sns topic and two brokers attached to the same sqs queue with one subscriptio each", func(t *testing.T) {
 		cfg := awsConfig(t)
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
@@ -145,7 +145,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 				require.NoError(t, broker1.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN eventually subscribers receives all the messages", func(t *testing.T) {
+			t.Run("THEN eventually subscriptions receives all the messages", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					r1 := consumer1.received()
 					r2 := consumer2.received()
@@ -162,7 +162,7 @@ func TestMultiHostBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a sns topic and two brokers (B1 and B2) with one subscriber each", func(t *testing.T) {
+	t.Run("GIVEN a sns topic and two brokers (B1 and B2) with one subscription each", func(t *testing.T) {
 		cfg := awsConfig(t)
 		snsCli := awssns.NewFromConfig(cfg)
 		sqsCli := awssqs.NewFromConfig(cfg)
@@ -212,7 +212,7 @@ func TestMultiHostBroker(t *testing.T) {
 				require.NoError(t, broker1.Publish(ctx, topic, msg))
 			}
 
-			t.Run("THEN subscribers of such topic eventually receives the messages only once", func(t *testing.T) {
+			t.Run("THEN subscriptions of such topic eventually receives the messages only once", func(t *testing.T) {
 				require.Eventually(t, func() bool {
 					return consumer1.received().hasExactlyOnce(sent...)
 				}, 5*time.Second, time.Millisecond*100)

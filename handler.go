@@ -50,7 +50,7 @@ func (r MessageReflection) Accepts(m interface{}) bool {
 	return in.AssignableTo(r.MessageType)
 }
 
-// Subscriber represents a handling function capable of receiving messages
+// handler represents a handling function capable of receiving messages
 type handler struct {
 	reflection  MessageReflection
 	messageKind reflect.Kind

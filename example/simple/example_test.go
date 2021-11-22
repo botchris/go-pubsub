@@ -19,7 +19,7 @@ import (
 )
 
 func Test_EndToEnd(t *testing.T) {
-	t.Run("GIVEN a memory broker with a recovery and printer middlewares and two subscribers", func(t *testing.T) {
+	t.Run("GIVEN a memory broker with a recovery and printer middlewares and two subscriptions", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 

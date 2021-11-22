@@ -16,7 +16,7 @@ import (
 )
 
 func TestNewPrinterMiddleware(t *testing.T) {
-	t.Run("GIVEN a memory broker with a recovery middleware and two subscribers", func(t *testing.T) {
+	t.Run("GIVEN a memory broker with a recovery middleware and two subscriptions", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
