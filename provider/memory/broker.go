@@ -13,24 +13,15 @@ import (
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
-// SubscriptionErrorHandler used to handle subscribers errors when delivering a
-// message.
-type SubscriptionErrorHandler func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error)
-
-// NopSubscriptionErrorHandler an empty error handler
-var NopSubscriptionErrorHandler = func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error) {}
-
 type broker struct {
-	topics        map[pubsub.Topic]*topic
-	subErrHandler SubscriptionErrorHandler
+	topics map[pubsub.Topic]*topic
 	sync.RWMutex
 }
 
 // NewBroker returns a new in-memory broker instance.
-func NewBroker(subErrHandler SubscriptionErrorHandler) pubsub.Broker {
+func NewBroker() pubsub.Broker {
 	return &broker{
-		topics:        make(map[pubsub.Topic]*topic),
-		subErrHandler: subErrHandler,
+		topics: make(map[pubsub.Topic]*topic),
 	}
 }
 
@@ -41,7 +32,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 
 	for _, result := range t.publish(ctx, m) {
 		if result.err != nil {
-			b.subErrHandler(ctx, t.id, result.subscriber, m, result.err)
+			continue
 		}
 	}
 
@@ -52,11 +43,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 	b.Lock()
 	defer b.Unlock()
 
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
-
+	opts := pubsub.NewSubscribeOptions(option...)
 	sid := uuid.New()
 	unsub := func() error {
 		b.Lock()
@@ -72,7 +59,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		return nil
 	}
 
-	sub := pubsub.NewSubscription(sid, topic, handler, unsub, *opts)
+	sub := pubsub.NewSubscription(sid, topic, handler, unsub, opts)
 
 	b.openTopic(topic).subscribe(sub)
 

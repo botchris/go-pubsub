@@ -3,6 +3,7 @@ package printer_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func TestNewPrinterMiddleware(t *testing.T) {
 		t1 := pubsub.Topic("topic-1")
 		rx := &lockedCounter{}
 
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
 
@@ -40,12 +41,12 @@ func TestNewPrinterMiddleware(t *testing.T) {
 
 		t.Run("WHEN publishing a message to s1 THEN printer logs messages", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, t1, &emptypb.Empty{}))
-			require.Equal(t, 1, rx.read())
 
-			logs := writer.String()
-			require.NotEmpty(t, logs)
-			require.Contains(t, logs, "publishing")
-			require.Contains(t, logs, "received")
+			require.Eventually(t, func() bool {
+				logs := writer.String()
+
+				return rx.read() == 1 && strings.Contains(logs, "publishing") && strings.Contains(logs, "received")
+			}, 5*time.Second, 100*time.Millisecond)
 		})
 	})
 }

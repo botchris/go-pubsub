@@ -19,12 +19,9 @@ func (b *broker) Publish(_ context.Context, _ pubsub.Topic, _ interface{}) error
 }
 
 func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
+	opts := pubsub.NewSubscribeOptions(option...)
 
-	return pubsub.NewSubscription(uuid.New(), topic, handler, nil, *opts), nil
+	return pubsub.NewSubscription(uuid.New(), topic, handler, nil, opts), nil
 }
 
 func (b *broker) Shutdown(_ context.Context) error {

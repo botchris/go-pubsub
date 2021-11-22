@@ -1,4 +1,4 @@
-package sns
+package snssqs
 
 import (
 	"context"

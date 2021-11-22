@@ -90,7 +90,7 @@ func TestSubscriberInterceptor(t *testing.T) {
 			Max:    5 * time.Second,
 		})
 
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
 
@@ -99,11 +99,12 @@ func TestSubscriberInterceptor(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
-			err := broker.Publish(ctx, topic, "message")
+			require.NoError(t, broker.Publish(ctx, topic, "message"))
 
 			t.Run("THEN subscriber eventually receives the message after 5 attempts", func(t *testing.T) {
-				require.NoError(t, err)
-				require.GreaterOrEqual(t, calls, 5)
+				require.Eventually(t, func() bool {
+					return calls >= worksEvery
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})
@@ -122,7 +123,7 @@ func TestSubscriberInterceptor(t *testing.T) {
 		}
 
 		strategy := retry.NewBreakerStrategy(4, time.Second)
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
 		topic := pubsub.Topic("test")
 
@@ -131,11 +132,12 @@ func TestSubscriberInterceptor(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a message to such subscriber", func(t *testing.T) {
-			err := broker.Publish(ctx, topic, "message")
+			require.NoError(t, broker.Publish(ctx, topic, "message"))
 
 			t.Run("THEN subscriber eventually receives the message after 5 attempts and a pause of 1s", func(t *testing.T) {
-				require.NoError(t, err)
-				require.GreaterOrEqual(t, calls, 5)
+				require.Eventually(t, func() bool {
+					return calls >= worksEvery
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})

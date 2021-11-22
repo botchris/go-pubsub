@@ -19,7 +19,7 @@ func TestNewBroker(t *testing.T) {
 
 	t.Run("GIVEN a redis broker with two subscriber in the same group", func(t *testing.T) {
 		groupID := "test"
-		broker := prepareBroker(ctx, t, groupID)
+		broker := prepareBroker(ctx, t)
 		messages := []string{
 			"test1",
 			"test2",
@@ -41,10 +41,10 @@ func TestNewBroker(t *testing.T) {
 			return nil
 		})
 
-		_, err := broker.Subscribe(ctx, "test", h1)
+		_, err := broker.Subscribe(ctx, "test", h1, pubsub.WithGroup(groupID))
 		require.NoError(t, err)
 
-		_, err = broker.Subscribe(ctx, "test", h2)
+		_, err = broker.Subscribe(ctx, "test", h2, pubsub.WithGroup(groupID))
 		require.NoError(t, err)
 
 		// wait for redis server to be ready
@@ -65,7 +65,7 @@ func TestNewBroker(t *testing.T) {
 
 }
 
-func prepareBroker(ctx context.Context, t *testing.T, groupID string) pubsub.Broker {
+func prepareBroker(ctx context.Context, t *testing.T) pubsub.Broker {
 	t.Helper()
 
 	s, err := miniredis.Run()
@@ -82,7 +82,7 @@ func prepareBroker(ctx context.Context, t *testing.T, groupID string) pubsub.Bro
 		}
 	}()
 
-	broker, err := redisb.NewBroker(ctx, redisb.WithGroupID(groupID), redisb.WithAddress(s.Addr()))
+	broker, err := redisb.NewBroker(ctx, redisb.WithAddress(s.Addr()))
 	require.NoError(t, err)
 
 	broker = codec.NewCodecMiddleware(broker, codec.JSON)

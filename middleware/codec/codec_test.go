@@ -17,7 +17,7 @@ func TestProto(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN a memory broker with one subscriber and proto encoder/decoder interceptors", func(t *testing.T) {
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, codec.Protobuf)
 
 		var received *timestamppb.Timestamp
@@ -33,8 +33,10 @@ func TestProto(t *testing.T) {
 
 		t.Run("WHEN publishing a proto message THEN subscriber receives the proto", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", now))
-			require.NotNil(t, received)
-			require.EqualValues(t, now.AsTime().Unix(), received.AsTime().Unix())
+
+			require.Eventually(t, func() bool {
+				return received != nil && now.AsTime().Unix() == received.AsTime().Unix()
+			}, 5*time.Second, 100*time.Millisecond)
 		})
 	})
 }
@@ -45,7 +47,7 @@ func TestJson(t *testing.T) {
 
 	t.Run("GIVEN a memory broker with two subscribers and JSON encoder/decoder", func(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
 
 		toSend := &testMessage{Value: "test"}
@@ -74,16 +76,16 @@ func TestJson(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))
 
 			t.Run("THEN subscribers receives the message and decoder is invoked only once", func(t *testing.T) {
-				require.NotEmpty(t, rcv1)
-				require.NotEmpty(t, rcv2)
-				require.EqualValues(t, jcodec.decoderCalls, 1)
+				require.Eventually(t, func() bool {
+					return rcv1 != nil && rcv2 != nil && jcodec.decoderCalls == 1
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})
 
 	t.Run("GIVEN a memory broker with one subscribers and JSON encoder/decoder", func(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
 		toSend := testMessage{Value: "test"}
 
@@ -101,16 +103,16 @@ func TestJson(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))
 
 			t.Run("THEN subscribers receives the message and decoder function is invoked", func(t *testing.T) {
-				require.NotEmpty(t, rcv)
-				require.EqualValues(t, toSend, rcv)
-				require.EqualValues(t, jcodec.decoderCalls, 1)
+				require.Eventually(t, func() bool {
+					return rcv == toSend && jcodec.decoderCalls == 1
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})
 
 	t.Run("GIVEN a memory broker with one subscribers and JSON encoder/decoder", func(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
 		toSend := map[string]string{"value": "test"}
 
@@ -128,16 +130,16 @@ func TestJson(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))
 
 			t.Run("THEN subscribers receives the message and decoder function is invoked", func(t *testing.T) {
-				require.NotEmpty(t, rcv)
-				require.EqualValues(t, toSend, rcv)
-				require.EqualValues(t, jcodec.decoderCalls, 1)
+				require.Eventually(t, func() bool {
+					return len(rcv) == len(toSend) && jcodec.decoderCalls == 1
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})
 
 	t.Run("GIVEN a memory broker with one subscribers and JSON encoder/decoder", func(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
 		toSend := "testing"
 
@@ -155,16 +157,16 @@ func TestJson(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, "test", toSend))
 
 			t.Run("THEN subscribers receives the message and decoder function is invoked", func(t *testing.T) {
-				require.NotEmpty(t, rcv)
-				require.EqualValues(t, toSend, rcv)
-				require.EqualValues(t, jcodec.decoderCalls, 1)
+				require.Eventually(t, func() bool {
+					return rcv == toSend && jcodec.decoderCalls == 1
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})
 
 	t.Run("GIVEN a memory broker with a catch-all subscribers and JSON encoder/decoder", func(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
 		toSend := "testing"
 		topic := pubsub.Topic("test")
@@ -183,9 +185,9 @@ func TestJson(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, topic, toSend))
 
 			t.Run("THEN subscribers receives the message and decoder function is invoked", func(t *testing.T) {
-				require.NotEmpty(t, rcv)
-				require.EqualValues(t, toSend, rcv)
-				require.EqualValues(t, jcodec.decoderCalls, 1)
+				require.Eventually(t, func() bool {
+					return rcv == toSend && jcodec.decoderCalls == 1
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})

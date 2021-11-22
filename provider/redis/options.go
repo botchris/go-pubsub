@@ -7,7 +7,6 @@ type Option func(*options)
 
 type options struct {
 	address                string
-	groupID                string
 	logger                 Logger
 	deliverTimeout         time.Duration
 	readGroupTimeout       time.Duration
@@ -21,14 +20,6 @@ type options struct {
 func WithAddress(address string) Option {
 	return func(o *options) {
 		o.address = address
-	}
-}
-
-// WithGroupID defines a group ID for the broker. Brokers with the same group ID
-// shares the same message queue. Default: random uuid
-func WithGroupID(groupID string) Option {
-	return func(opts *options) {
-		opts.groupID = groupID
 	}
 }
 

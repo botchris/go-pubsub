@@ -1,4 +1,4 @@
-package sns_test
+package snssqs_test
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
-	"github.com/botchris/go-pubsub/provider/sns"
+	"github.com/botchris/go-pubsub/provider/snssqs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -287,11 +287,11 @@ func prepareBroker(
 	}
 
 	queueURL := *qRes.QueueUrl
-	broker, err := sns.NewBroker(ctx,
-		sns.WithSNSClient(snsClient),
-		sns.WithSQSClient(sqsClient),
-		sns.WithSQSQueueURL(queueURL),
-		sns.WithWaitTimeSeconds(1),
+	broker, err := snssqs.NewBroker(ctx,
+		snssqs.WithSNSClient(snsClient),
+		snssqs.WithSQSClient(sqsClient),
+		snssqs.WithSQSQueueURL(queueURL),
+		snssqs.WithWaitTimeSeconds(1),
 	)
 
 	if err != nil {
