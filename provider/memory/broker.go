@@ -13,24 +13,15 @@ import (
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
-// SubscriptionErrorHandler used to handle subscribers errors when delivering a
-// message.
-type SubscriptionErrorHandler func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error)
-
-// NopSubscriptionErrorHandler an empty error handler
-var NopSubscriptionErrorHandler = func(ctx context.Context, topic pubsub.Topic, s pubsub.Subscription, m interface{}, err error) {}
-
 type broker struct {
-	topics        map[pubsub.Topic]*topic
-	subErrHandler SubscriptionErrorHandler
+	topics map[pubsub.Topic]*topic
 	sync.RWMutex
 }
 
 // NewBroker returns a new in-memory broker instance.
-func NewBroker(subErrHandler SubscriptionErrorHandler) pubsub.Broker {
+func NewBroker() pubsub.Broker {
 	return &broker{
-		topics:        make(map[pubsub.Topic]*topic),
-		subErrHandler: subErrHandler,
+		topics: make(map[pubsub.Topic]*topic),
 	}
 }
 
@@ -39,11 +30,13 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	t := b.openTopic(topic)
 	b.Unlock()
 
-	for _, result := range t.publish(ctx, m) {
-		if result.err != nil {
-			b.subErrHandler(ctx, t.id, result.subscriber, m, result.err)
+	go func() {
+		for _, result := range t.publish(ctx, m) {
+			if result.err != nil {
+				continue
+			}
 		}
-	}
+	}()
 
 	return nil
 }

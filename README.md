@@ -46,7 +46,7 @@ The `go-pubsub` package comes with a set of built-in providers:
   Bus" replacement.
 - `nop`: s simple NOP broker implementation that can be used for testing.
 - `redis`: a broker that uses redis streams as PubSub mechanism.
-- `sns`: a Broker that uses AWS SNS and AWS SQS.
+- `snssqs`: a Broker that uses AWS SNS and AWS SQS.
 - `kmq`: a KubeMQ implementation of the Broker interface.
 
 ### Creating your own provider

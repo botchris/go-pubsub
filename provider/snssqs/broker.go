@@ -1,5 +1,5 @@
-// Package sns provides a simple AWS SNS based broker implementation.
-package sns
+// Package snssqs provides a simple AWS SNS+SQS broker implementation.
+package snssqs
 
 import (
 	"context"
@@ -26,14 +26,17 @@ type broker struct {
 	mu           sync.RWMutex
 }
 
-// NewBroker returns a broker that uses AWS SNS service for pub/sub messaging
-// over a SQS queue.
+// NewBroker returns a broker that allows to push to AWS SNS topics and
+// subscribe messages brokered by SQS. This provider does not (yet) support
+// automatic creation of SQS queues or SNS topics, so those will have to exist
+// in your infrastructure before attempting to send/receive.
 //
 // This broker will start running a background goroutine that will poll the SQS
 // queue for new messages. Topics must be firstly created on AWS SNS before
 // starting this broker, and each topic must be tagged with the "topic-name"
 // key on AWS. This is used to hold the name of the topic as seen by the broker
-// implementation (`pubsub.topic`).
+// implementation (`pubsub.topic`). This allows to keep the topic name
+// agnostic to their underlying implementation.
 //
 // IMPORTANT: this broker must be used in conjunction with a Codec middleware in
 // order to ensure that the messages are properly encoded and decoded.
@@ -41,7 +44,7 @@ type broker struct {
 // delivering messages.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
-		deliverTimeout:       3 * time.Second,
+		deliverTimeout:       5 * time.Second,
 		topicsReloadInterval: 60 * time.Second,
 		maxMessages:          5,
 		visibilityTimeout:    30,
@@ -296,16 +299,18 @@ func (b *broker) handleNotification(sub Subscription, noty sqsNotification) erro
 		return mErr
 	}
 
-	input := &sqs.DeleteMessageInput{
-		QueueUrl:      aws.String(b.options.sqsQueueURL),
-		ReceiptHandle: aws.String(noty.ReceiptHandle),
-	}
+	if sub.Options().AutoAck {
+		input := &sqs.DeleteMessageInput{
+			QueueUrl:      aws.String(b.options.sqsQueueURL),
+			ReceiptHandle: aws.String(noty.ReceiptHandle),
+		}
 
-	if _, err := b.options.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
-		// There was an error removing the message from the queue, so probably the message
-		// is still in the queue and will receive it again (although we will never know),
-		// so be prepared to process the message again without side effects.
-		return nil
+		if _, err := b.options.sqsClient.DeleteMessage(b.runnerCtx, input); err != nil {
+			// There was an error removing the message from the queue, so probably the message
+			// is still in the queue and will receive it again (although we will never know),
+			// so be prepared to process the message again without side effects.
+			return nil
+		}
 	}
 
 	return nil
