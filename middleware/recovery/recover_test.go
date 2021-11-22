@@ -46,7 +46,7 @@ func TestSubscribeInterceptor(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN a in-memory broker with one subscriber", func(t *testing.T) {
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 
 		recoveryCalls := 0
 		rec := func(ctx context.Context, p interface{}) error {
@@ -68,16 +68,14 @@ func TestSubscribeInterceptor(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN subscriber panics", func(t *testing.T) {
-			var err error
-
 			require.NotPanics(t, func() {
-				err = broker.Publish(ctx, "test", "test")
+				require.NoError(t, broker.Publish(ctx, "test", "test"))
 			})
 
-			t.Run("THEN publish recover from panics", func(t *testing.T) {
-				require.NoError(t, err)
-				require.NotZero(t, subCalls)
-				require.NotZero(t, recoveryCalls)
+			t.Run("THEN handlers eventually recover from panics", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					return subCalls > 0 && recoveryCalls > 0
+				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
 	})

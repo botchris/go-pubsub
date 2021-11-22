@@ -45,11 +45,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 	b.Lock()
 	defer b.Unlock()
 
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
-
+	opts := pubsub.NewSubscribeOptions(option...)
 	sid := uuid.New()
 	unsub := func() error {
 		b.Lock()
@@ -65,7 +61,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		return nil
 	}
 
-	sub := pubsub.NewSubscription(sid, topic, handler, unsub, *opts)
+	sub := pubsub.NewSubscription(sid, topic, handler, unsub, opts)
 
 	b.openTopic(topic).subscribe(sub)
 

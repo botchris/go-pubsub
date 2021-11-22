@@ -10,21 +10,28 @@ type SubscribeOptions struct {
 	/// message is acked.
 	AutoAck bool
 
-	// Metadata other options for implementations of the Broker interface
-	// can be stored as metadata.
-	Metadata map[string]interface{}
-}
-
-// DefaultSubscribeOptions builds a new SubscribeOptions.
-func DefaultSubscribeOptions() *SubscribeOptions {
-	return &SubscribeOptions{
-		AutoAck:  true,
-		Metadata: make(map[string]interface{}),
-	}
+	// Metadata other options for concrete implementations of the Broker
+	// interface can be stored as metadata.
+	Metadata Metadata
 }
 
 // SubscribeOption is a function that configures a SubscribeOptions instance.
 type SubscribeOption func(*SubscribeOptions)
+
+// NewSubscribeOptions convenience function for building a SubscribeOptions
+// based on given list of options.
+func NewSubscribeOptions(opts ...SubscribeOption) SubscribeOptions {
+	s := &SubscribeOptions{
+		AutoAck:  true,
+		Metadata: NewMetadata(),
+	}
+
+	for _, o := range opts {
+		o(s)
+	}
+
+	return *s
+}
 
 // DisableAutoAck will disable auto acking of messages after they have been
 // handled.
@@ -42,7 +49,7 @@ func WithGroup(name string) SubscribeOption {
 }
 
 // SubscribeMetadata set subscription metadata.
-func SubscribeMetadata(meta map[string]interface{}) SubscribeOption {
+func SubscribeMetadata(meta Metadata) SubscribeOption {
 	return func(o *SubscribeOptions) {
 		o.Metadata = meta
 	}

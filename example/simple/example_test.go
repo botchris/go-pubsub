@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ func Test_EndToEnd(t *testing.T) {
 		rx := &lockedCounter{}
 		panics := &lockedCounter{}
 
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		writer := bytes.NewBuffer([]byte{})
 		broker = printer.NewPrinterMiddleware(broker, writer)
 		broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
@@ -59,12 +60,12 @@ func Test_EndToEnd(t *testing.T) {
 
 		t.Run("WHEN publishing a message to s1 THEN printer logs messages", func(t *testing.T) {
 			require.NoError(t, broker.Publish(ctx, t1, &emptypb.Empty{}))
-			require.Equal(t, 1, rx.read())
 
-			logs := writer.String()
-			require.NotEmpty(t, logs)
-			require.Contains(t, logs, "publishing")
-			require.Contains(t, logs, "received")
+			require.Eventually(t, func() bool {
+				logs := writer.String()
+
+				return rx.read() == 1 && strings.Contains(logs, "publishing") && strings.Contains(logs, "received")
+			}, 5*time.Second, 100*time.Millisecond)
 		})
 
 		t.Run("WHEN publishing a message to s2 THEN panic is recovered", func(t *testing.T) {
@@ -72,7 +73,9 @@ func Test_EndToEnd(t *testing.T) {
 				require.NoError(t, broker.Publish(ctx, t2, &emptypb.Empty{}))
 			})
 
-			require.EqualValues(t, panics.read(), 1)
+			require.Eventually(t, func() bool {
+				return panics.read() == 1
+			}, 5*time.Second, 100*time.Millisecond)
 		})
 	})
 
@@ -80,7 +83,7 @@ func Test_EndToEnd(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+		broker := memory.NewBroker()
 		topicID := pubsub.Topic("yolo-2")
 		rx := &lockedCounter{}
 		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m interface{}) error {
@@ -96,7 +99,9 @@ func Test_EndToEnd(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, broker.Publish(ctx, topicID, &emptypb.Empty{}))
-		require.Equal(t, 1, rx.read())
+		require.Eventually(t, func() bool {
+			return rx.read() == 1
+		}, 5*time.Second, 100*time.Millisecond)
 	})
 }
 

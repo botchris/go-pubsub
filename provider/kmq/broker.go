@@ -119,11 +119,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 	b.smu.Lock()
 	defer b.smu.Unlock()
 
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
-
+	opts := pubsub.NewSubscribeOptions(option...)
 	sid := uuid.New()
 	unsub := func() error {
 		b.smu.Lock()
@@ -139,7 +135,7 @@ func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		return nil
 	}
 
-	sub, err := pubsub.NewStoppableSubscription(b.ctx, sid, topic, handler, unsub, *opts)
+	sub, err := pubsub.NewStoppableSubscription(b.ctx, sid, topic, handler, unsub, opts)
 	if err != nil {
 		return nil, err
 	}

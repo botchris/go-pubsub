@@ -84,6 +84,11 @@ func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		r.subs[topic] = make(map[string]pubsub.StoppableSubscription)
 	}
 
+	opts := pubsub.NewSubscribeOptions(option...)
+	if opts.Group == "" {
+		opts.Group = uuid.New()
+	}
+
 	sid := uuid.New()
 	unsub := func() error {
 		r.mu.Lock()
@@ -105,16 +110,7 @@ func (r *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub
 		return nil
 	}
 
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
-
-	if opts.Group == "" {
-		opts.Group = uuid.New()
-	}
-
-	sub, err := pubsub.NewStoppableSubscription(r.ctx, sid, topic, handler, unsub, *opts)
+	sub, err := pubsub.NewStoppableSubscription(r.ctx, sid, topic, handler, unsub, opts)
 	if err != nil {
 		return nil, err
 	}

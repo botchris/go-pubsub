@@ -19,7 +19,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	broker := memory.NewBroker(memory.NopSubscriptionErrorHandler)
+	broker := memory.NewBroker()
 
 	h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, m myMessage) error {
 		fmt.Printf("%s -> %+v -> [s1]\n", t, m)

@@ -133,11 +133,7 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, handler pubs
 		b.subs[topic] = make(map[string]Subscription)
 	}
 
-	opts := pubsub.DefaultSubscribeOptions()
-	for _, o := range option {
-		o(opts)
-	}
-
+	opts := pubsub.NewSubscribeOptions(option...)
 	sid := uuid.New()
 	unsub := func() error {
 		b.mu.Lock()
@@ -166,9 +162,9 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, handler pubs
 		return nil
 	}
 
-	sub := &subscription{
+	sub := &awsSubscription{
 		arn:          *subSNS.SubscriptionArn,
-		Subscription: pubsub.NewSubscription(sid, topic, handler, unsub, *opts),
+		Subscription: pubsub.NewSubscription(sid, topic, handler, unsub, opts),
 	}
 
 	b.subs[topic][sid] = sub
