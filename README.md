@@ -89,6 +89,7 @@ broker := printer.NewPrinterMiddleware(myProvider, os.Stdout)
 Included middlewares are:
 
 - `codec`: a middleware that encodes and decodes messages using the given codec.
+- `lifecycle`: a middleware that allows to bind to broker lifecycle events.
 - `printer`: a simple middleware that prints each message to the given output.
 - `recover`: a middleware that recovers from panics.
 - `retry`: a middleware that retries publishing messages if the broker fails.
