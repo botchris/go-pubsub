@@ -52,19 +52,26 @@ The `go-pubsub` package comes with a set of built-in providers:
 ### Creating your own provider
 
 This packages moves around the `Broker` interface definition, which is the 
-central piece for dealing with PubSub systems:
+central piece for dealing with PubSub systems. The `Broker` interface is a 
+composition of three independent interfaces which can be used in order to keep
+you application concerns clean and separated:
 
 ```go
-// Broker defines the interface for a pub/sub broker.
 type Broker interface {
-	// Publish the given message on the given topic.
+	Publisher
+	Subscriber
+	Shutdowner
+}
+
+type Publisher interface {
 	Publish(ctx context.Context, topic Topic, m interface{}) error
+}
 
-	// Subscribe attaches the given handler to the given topic.
-	// The same handler could be attached multiple times to the same topic.
+type Subscriber interface {
 	Subscribe(ctx context.Context, topic Topic, handler Handler, option ...SubscribeOption) (Subscription, error)
+}
 
-	// Shutdown gracefully shutdowns all subscriptions.
+type Shutdowner interface {
 	Shutdown(ctx context.Context) error
 }
 ```
