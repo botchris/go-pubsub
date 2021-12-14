@@ -15,7 +15,8 @@ type Subscription interface {
 	// Unsubscribe unsubscribes.
 	Unsubscribe() error
 
-	// Handler returns the Handler this subscription will use to handle messages.
+	// Handler returns the underlying Handler function this subscription will
+	// use when receiving messages.
 	Handler() Handler
 }
 

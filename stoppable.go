@@ -8,14 +8,15 @@ import (
 // StoppableSubscription represents a subscription that can be stopped.
 //
 // Generally used by brokers implementations that relies on background running
-// goroutines for handling subscriptions and message receptions from services
+// goroutines for handling subscriptions and message receptions from remote
+// backends, e.g. Kafka, NATS, etc.
 type StoppableSubscription interface {
 	Subscription
 
 	// Context returns the internal context of this subscription which controls
 	// its life cycle. This is usually branched from broker's internal context,
 	// and allows implementing graceful shutdown mechanisms when broker decides
-	//to stop.
+	// to stop.
 	Context() context.Context
 
 	// Stop is used to signal the subscription to stop. This is usually invoked
@@ -49,7 +50,8 @@ func (s *stoppable) Stop() {
 }
 
 // NewStoppableSubscription builds a new stoppable subscription. Given context
-// should be the broker's internal context, this allows to implement graceful shutdown.
+// should be the broker's internal context, this allows to implement graceful
+// shutdown.
 func NewStoppableSubscription(
 	ctx context.Context,
 	id string,

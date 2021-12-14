@@ -23,11 +23,13 @@ type middleware struct {
 // messages when publishing and delivering.
 //
 // When Publishing:
-// Intercepts each message and encodes it before publishing to underlying broker.
+// Intercepts each message being published and encodes it before passing it to
+// wrapped broker.
 //
 // When Delivering:
-// Intercepts each message before it gets delivered to handlers and decodes it
-// to handler's accepted type assuming that the incoming message is a byte slice.
+// Intercepts each message before it gets delivered to subscriber handlers and
+// decodes into handler's accepted type assuming that the incoming message is a
+// byte slice (`[]byte`)
 //
 // Decoder function is invoked once for each desired type, and it takes
 // two arguments:
@@ -47,14 +49,16 @@ type middleware struct {
 // - `map[string]string`
 //
 // If decoder is unable to convert the given byte slice into the desired type
-// (string or map in the above example), and error must be returned. This will
-// prevent from delivering the message to underlying handler.
+// (string or map in the above example), an error must be returned by Codec
+// implementations. This will prevent from delivering the message to underlying
+// handler.
 //
-// NOTE: message decoding are expensive operations.
-// In the other hand, interceptors are applied each time a message is delivered
-// to handlers. This may produce unnecessary decoding operation when the same
-// message is delivered to multiple handlers/subscriptions. To address this
-// issue, this interceptor uses a small LRU cache of each seen decoded message.
+// IMPORTANT: message decoding are expensive operations.
+// In the other hand, delivery interception occurs each time a message is
+// delivered to subscriber handlers. This may produce unnecessary decoding
+// operation when the same message is delivered to multiple subscriptions. To
+// address this issue, this middleware uses a small in-memory LRU cache of each
+// seen decoded message.
 func NewCodecMiddleware(broker pubsub.Broker, codec Codec) pubsub.Broker {
 	cache, _ := lru.New(256)
 
