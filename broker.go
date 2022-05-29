@@ -4,19 +4,11 @@ import (
 	"context"
 )
 
-// Topic identifies a particular Topic on which messages can be published.
-type Topic string
-
-// String returns the string representation of the Topic.
-func (t Topic) String() string {
-	return string(t)
-}
-
 // Publisher is a convenience definition which extract topic-publishing behavior
 // into an independent interface.
 //
 // This is specially useful when needing to publish messages without having to
-// expose  the entire Broker implementation.
+// expose the entire Broker implementation.
 type Publisher interface {
 	// Publish the given message on the given topic.
 	Publish(ctx context.Context, topic Topic, m interface{}) error
