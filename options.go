@@ -7,7 +7,7 @@ type SubscribeOptions struct {
 	Group string
 
 	// AutoAck defaults to true. When a handler returns with a nil error the
-	/// message is acked.
+	// message is acknowledged.
 	AutoAck bool
 
 	// Metadata other options for concrete implementations of the Broker
@@ -33,7 +33,7 @@ func NewSubscribeOptions(opts ...SubscribeOption) SubscribeOptions {
 	return *s
 }
 
-// DisableAutoAck will disable auto acking of messages after they have been
+// DisableAutoAck will disable auto ACKing of messages after they have been
 // handled.
 func DisableAutoAck() SubscribeOption {
 	return func(o *SubscribeOptions) {
