@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kubemq-io/kubemq-go v1.7.2
-	github.com/stretchr/testify v1.7.0
+	github.com/rabbitmq/amqp091-go v1.6.0 // indirect
+	github.com/stretchr/testify v1.8.0
 	google.golang.org/protobuf v1.26.0
 )
