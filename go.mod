@@ -1,6 +1,6 @@
 module github.com/botchris/go-pubsub
 
-go 1.15
+go 1.17
 
 require (
 	github.com/alicebob/miniredis/v2 v2.16.1
