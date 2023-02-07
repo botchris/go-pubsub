@@ -3,6 +3,7 @@ package pubsub
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -38,9 +39,14 @@ type Handler interface {
 
 // MessageReflection describes the message a handler is interested in.
 type MessageReflection struct {
+	// MessageType is the type of the message the handler is interested in, e.g. "myapp.MyMessage".
 	MessageType reflect.Type
+
+	// MessageKind is the kind of the type of the message, e.g. "struct", "interface", "ptr", etc.
 	MessageKind reflect.Kind
-	Handler     reflect.Value
+
+	// Handler is the reflected handler function itself.
+	Handler reflect.Value
 }
 
 // Accepts whether the handler accepts the provided message.
@@ -48,6 +54,11 @@ func (r MessageReflection) Accepts(m interface{}) bool {
 	in := reflect.TypeOf(m)
 
 	return in.AssignableTo(r.MessageType)
+}
+
+// String returns a string representation of the reflected message.
+func (r MessageReflection) String() string {
+	return fmt.Sprintf("%s (%s)", r.MessageType, r.MessageKind)
 }
 
 // handler represents a handling function capable of receiving messages
