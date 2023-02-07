@@ -41,9 +41,9 @@ or Nats.io. The Broker interface acts as a generalization for such services.
 
 The `go-pubsub` package comes with a set of built-in providers:
 
-- `memory`: a simple Broker which allows communicating local process of your 
+- `memory`: a simple Broker that allows communicating local process of your
   system by interchanging messages, which can be used as a simple "Message 
-  Bus" replacement.
+  Bus" or "Event Dispatcher" replacement.
 - `nop`: a simple NO-OP broker implementation that can be used for testing.
 - `redis`: a broker that uses redis streams as PubSub mechanism.
 - `snssqs`: a Broker that uses AWS SNS and AWS SQS.

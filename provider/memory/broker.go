@@ -1,4 +1,6 @@
-// Package memory provides a simple in-memory Broker.
+// Package memory provides a simple in-memory Broker, which moves messages
+// using local memory. Suitable for testing or as a simple "Event Bus" or
+// "Event Dispatcher" replacement.
 //
 // This broker should never be used for IPC purposes
 // (Inter-Process Communication) as it only works by moving messages using
