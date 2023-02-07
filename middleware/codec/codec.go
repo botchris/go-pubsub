@@ -22,16 +22,18 @@ type middleware struct {
 // NewCodecMiddleware creates a new Codec middleware that encodes/decodes
 // messages when publishing and delivering.
 //
-// When Publishing:
+// # When Publishing
+//
 // Intercepts each message being published and encodes it before passing it to
 // wrapped broker.
 //
-// When Delivering:
+// # When Delivering
+//
 // Intercepts each message before it gets delivered to subscriber handlers and
 // decodes into handler's accepted type assuming that the incoming message is a
 // byte slice (`[]byte`)
 //
-// Decoder function is invoked once for each desired type, and it takes
+// Decoder function is invoked once for each destination type, and it takes
 // two arguments:
 //
 // 1. The raw message as a byte slice
@@ -53,12 +55,13 @@ type middleware struct {
 // implementations. This will prevent from delivering the message to underlying
 // handler.
 //
-// IMPORTANT: message decoding are expensive operations.
-// In the other hand, delivery interception occurs each time a message is
-// delivered to subscriber handlers. This may produce unnecessary decoding
-// operation when the same message is delivered to multiple subscriptions. To
-// address this issue, this middleware uses a small in-memory LRU cache of each
-// seen decoded message.
+// IMPORTANT:
+//
+// Message decoding are expensive operations as interception takes place each
+// time a message is delivered to handler function. This may produce unnecessary
+// decoding operation when the same message is delivered to multiple subscriptions.
+// To address this issue, this middleware uses a small in-memory LRU cache of each
+// seen decoded message to prevent from decoding the same message multiple times.
 func NewCodecMiddleware(broker pubsub.Broker, codec Codec) pubsub.Broker {
 	cache, _ := lru.New(256)
 
