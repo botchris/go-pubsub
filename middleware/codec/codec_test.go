@@ -193,6 +193,36 @@ func TestJson(t *testing.T) {
 	})
 }
 
+func TestGob(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a memory broker with one subscription AND gob encoder/decoder interceptors", func(t *testing.T) {
+		broker := memory.NewBroker()
+		spy := &gobCodecSpy{}
+		broker = codec.NewCodecMiddleware(broker, spy)
+
+		var received testMessage
+
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg testMessage) error {
+			received = msg
+
+			return nil
+		})
+
+		_, err := broker.Subscribe(ctx, "test", h1)
+		require.NoError(t, err)
+
+		t.Run("WHEN publishing a golang message THEN subscriptions receives the message AND codec is invoked for encoding/decoding", func(t *testing.T) {
+			require.NoError(t, broker.Publish(ctx, "test", testMessage{Value: "testing"}))
+
+			require.Eventually(t, func() bool {
+				return received.Value == "testing" && spy.decoderCalls == 1 && spy.encoderCalls == 1
+			}, 5*time.Second, 100*time.Millisecond)
+		})
+	})
+}
+
 type testMessage struct {
 	Value string
 }
@@ -212,4 +242,21 @@ func (j *jsonCodecSpy) Decode(bytes []byte, i interface{}) error {
 	j.decoderCalls++
 
 	return codec.JSON.Decode(bytes, i)
+}
+
+type gobCodecSpy struct {
+	encoderCalls int
+	decoderCalls int
+}
+
+func (g *gobCodecSpy) Encode(i interface{}) ([]byte, error) {
+	g.encoderCalls++
+
+	return codec.Gob.Encode(i)
+}
+
+func (g *gobCodecSpy) Decode(bytes []byte, i interface{}) error {
+	g.decoderCalls++
+
+	return codec.Gob.Decode(bytes, i)
 }
