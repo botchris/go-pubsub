@@ -31,7 +31,3 @@ jobs:
         go mod download
         golangci-lint run -v ./...
         go test -count=1 -race ./...
-      with:
-        context: .
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
