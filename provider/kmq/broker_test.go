@@ -186,7 +186,7 @@ func TestMultiInstanceBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN two brokers with the same id and with one subscription each to the same topic", func(t *testing.T) {
+	t.Run("GIVEN two brokers with the same id AND with one subscription each to the same topic", func(t *testing.T) {
 		clientID := "test-client"
 		gid := uuid.New()
 
