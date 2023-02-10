@@ -11,7 +11,7 @@ on:
 
 jobs:
 
-  build:
+  ci:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -31,3 +31,7 @@ jobs:
         go mod download
         golangci-lint run -v ./...
         go test -count=1 -race ./...
+      with:
+        context: .
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
