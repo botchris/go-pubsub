@@ -2,18 +2,18 @@ package codec
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"reflect"
 
 	"github.com/botchris/go-pubsub"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/segmentio/fasthash/fnv1a"
 )
 
 type handler struct {
 	pubsub.Handler
-	codec Codec
 	cache *lru.Cache
+	codec Codec
 }
 
 func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}) error {
@@ -23,12 +23,9 @@ func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}
 	}
 
 	srf := s.Handler.Reflect()
+	cacheKey := fmt.Sprintf("%s:%d", srf.MessageType.String(), fnv1a.HashBytes64(bytes))
 
-	h := sha1.New()
-	key := append(bytes, []byte(srf.MessageType.String())...)
-	hash := fmt.Sprintf("%x", h.Sum(key))
-
-	if found, hit := s.cache.Get(hash); hit {
+	if found, hit := s.cache.Get(cacheKey); hit {
 		return s.Handler.Deliver(ctx, topic, found)
 	}
 
@@ -37,7 +34,7 @@ func (s *handler) Deliver(ctx context.Context, topic pubsub.Topic, m interface{}
 		return nil
 	}
 
-	s.cache.Add(hash, msg)
+	s.cache.Add(cacheKey, msg)
 
 	return s.Handler.Deliver(ctx, topic, msg)
 }

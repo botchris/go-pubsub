@@ -41,9 +41,9 @@ type middleware struct {
 //
 // For example, given the following handler functions:
 //
-//     S1: func (ctx context.Context, msg string) error
-//     S2: func (ctx context.Context, msg string) error
-//     S3: func (ctx context.Context, msg map[string]string) error
+//	S1: func (ctx context.Context, msg string) error
+//	S2: func (ctx context.Context, msg string) error
+//	S3: func (ctx context.Context, msg map[string]string) error
 //
 // Then, decoder function will be invoked twice, once for each type:
 //
@@ -55,15 +55,16 @@ type middleware struct {
 // implementations. This will prevent from delivering the message to underlying
 // handler.
 //
-// IMPORTANT:
+// Performance Considerations:
 //
 // Message decoding are expensive operations as interception takes place each
 // time a message is delivered to handler function. This may produce unnecessary
 // decoding operation when the same message is delivered to multiple subscriptions.
+//
 // To address this issue, this middleware uses a small in-memory LRU cache of each
 // seen decoded message to prevent from decoding the same message multiple times.
 func NewCodecMiddleware(broker pubsub.Broker, codec Codec) pubsub.Broker {
-	cache, _ := lru.New(256)
+	cache, _ := lru.New(1024)
 
 	return &middleware{
 		Broker: broker,
@@ -84,8 +85,8 @@ func (mw middleware) Publish(ctx context.Context, topic pubsub.Topic, m interfac
 func (mw middleware) Subscribe(ctx context.Context, topic pubsub.Topic, h pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
 	nh := &handler{
 		Handler: h,
-		codec:   mw.codec,
 		cache:   mw.cache,
+		codec:   mw.codec,
 	}
 
 	return mw.Broker.Subscribe(ctx, topic, nh, option...)
