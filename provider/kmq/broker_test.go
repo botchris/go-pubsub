@@ -89,7 +89,7 @@ func TestSingleBroker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a broker with two subscriptions to the same topic but different groups", func(t *testing.T) {
+	t.Run("GIVEN a broker with two subscriptions to the same topic but for different groups", func(t *testing.T) {
 		clientID := "test-client"
 		topic := pubsub.Topic("test-topic")
 		broker, err := prepareJSONBroker(ctx, clientID)
