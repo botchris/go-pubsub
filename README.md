@@ -101,10 +101,10 @@ Included middlewares are:
 - `recover`: a middleware that recovers from panics.
 - `retry`: a middleware that retries publishing messages if the broker fails.
 
-Middlewares can be combined by wrapping each other,for example:
+Middlewares can be combined by wrapping each other, for example:
 
 ```go
-broker := memory.NewMemoryBroker(memory.NopErrorHandler) 
+broker := memory.NewMemoryBroker() 
 broker = printer.NewPrinterMiddleware(myProvider, os.Stdout)
 broker = codec.NewCodecMiddleware(broker, codec.JSON)
 broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p interface{}) error {
@@ -113,6 +113,12 @@ broker = recovery.NewRecoveryMiddleware(broker, func(ctx context.Context, p inte
 	return nil 
 })
 ```
+
+Please note that middlewares are applied in reverse order they are wrapped, so in
+the example above, the `recovery` middleware will be applied first, then the
+`codec` middleware, and so on:
+
+Recovery -> Codec -> Printer -> Memory-Broker
 
 ## TODO
 

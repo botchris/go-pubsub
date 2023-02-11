@@ -16,7 +16,7 @@ func TestProto(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a memory broker with one subscription and proto encoder/decoder interceptors", func(t *testing.T) {
+	t.Run("GIVEN a memory broker with one subscription and proto encoder/decoder interceptor", func(t *testing.T) {
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, codec.Protobuf)
 
@@ -49,8 +49,7 @@ func TestJson(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
-
-		toSend := &testMessage{Value: "test"}
+		sent := &testMessage{Value: "test"}
 
 		var rcv1 *testMessage
 		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg *testMessage) error {
@@ -73,7 +72,7 @@ func TestJson(t *testing.T) {
 		require.NoError(t, sErr2)
 
 		t.Run("WHEN publishing a custom pointer message", func(t *testing.T) {
-			require.NoError(t, broker.Publish(ctx, "test", toSend))
+			require.NoError(t, broker.Publish(ctx, "test", sent))
 
 			t.Run("THEN subscriptions receives the message and decoder is invoked only once", func(t *testing.T) {
 				require.Eventually(t, func() bool {
@@ -87,7 +86,7 @@ func TestJson(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
-		toSend := testMessage{Value: "test"}
+		sent := testMessage{Value: "test"}
 
 		var rcv testMessage
 		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg testMessage) error {
@@ -100,11 +99,11 @@ func TestJson(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a custom message by value", func(t *testing.T) {
-			require.NoError(t, broker.Publish(ctx, "test", toSend))
+			require.NoError(t, broker.Publish(ctx, "test", sent))
 
 			t.Run("THEN subscriptions receives the message and decoder function is invoked", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					return rcv == toSend && jcodec.decoderCalls == 1
+					return sent.Equals(rcv) && jcodec.decoderCalls == 1
 				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
@@ -114,7 +113,7 @@ func TestJson(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
-		toSend := map[string]string{"value": "test"}
+		sent := map[string]string{"value": "test"}
 
 		var rcv map[string]string
 		h := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg map[string]string) error {
@@ -127,11 +126,11 @@ func TestJson(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a map<string,string> message", func(t *testing.T) {
-			require.NoError(t, broker.Publish(ctx, "test", toSend))
+			require.NoError(t, broker.Publish(ctx, "test", sent))
 
 			t.Run("THEN subscriptions receives the message and decoder function is invoked", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					return len(rcv) == len(toSend) && jcodec.decoderCalls == 1
+					return len(rcv) == len(sent) && jcodec.decoderCalls == 1
 				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
@@ -141,11 +140,12 @@ func TestJson(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
-		toSend := "testing"
+		sent := "testing"
 
-		var rcv string
+		var received string
+
 		h := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg string) error {
-			rcv = msg
+			received = msg
 
 			return nil
 		})
@@ -154,11 +154,11 @@ func TestJson(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a string message", func(t *testing.T) {
-			require.NoError(t, broker.Publish(ctx, "test", toSend))
+			require.NoError(t, broker.Publish(ctx, "test", sent))
 
 			t.Run("THEN subscriptions receives the message and decoder function is invoked", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					return rcv == toSend && jcodec.decoderCalls == 1
+					return received == sent && jcodec.decoderCalls == 1
 				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
@@ -168,12 +168,13 @@ func TestJson(t *testing.T) {
 		jcodec := &jsonCodecSpy{}
 		broker := memory.NewBroker()
 		broker = codec.NewCodecMiddleware(broker, jcodec)
-		toSend := "testing"
+		sent := "testing"
 		topic := pubsub.Topic("test")
 
-		var rcv string
+		var received string
+
 		h := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg interface{}) error {
-			rcv = msg.(string)
+			received = msg.(string)
 
 			return nil
 		})
@@ -182,11 +183,11 @@ func TestJson(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN publishing a string message", func(t *testing.T) {
-			require.NoError(t, broker.Publish(ctx, topic, toSend))
+			require.NoError(t, broker.Publish(ctx, topic, sent))
 
 			t.Run("THEN subscription receives the message and decoder function is invoked", func(t *testing.T) {
 				require.Eventually(t, func() bool {
-					return rcv == toSend && jcodec.decoderCalls == 1
+					return received == sent && jcodec.decoderCalls == 1
 				}, 5*time.Second, 100*time.Millisecond)
 			})
 		})
@@ -197,7 +198,7 @@ func TestGob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a memory broker with one subscription AND gob encoder/decoder interceptors", func(t *testing.T) {
+	t.Run("GIVEN a memory broker with one subscription AND gob encoder/decoder interceptor", func(t *testing.T) {
 		broker := memory.NewBroker()
 		spy := &gobCodecSpy{}
 		broker = codec.NewCodecMiddleware(broker, spy)
@@ -223,8 +224,76 @@ func TestGob(t *testing.T) {
 	})
 }
 
+func TestMsgpack(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a memory broker with one subscription AND msgpack encoder/decoder interceptor", func(t *testing.T) {
+		broker := memory.NewBroker()
+		spy := &msgpackCodecSky{}
+		broker = codec.NewCodecMiddleware(broker, spy)
+
+		var received testMessage
+
+		h1 := pubsub.NewHandler(func(ctx context.Context, t pubsub.Topic, msg testMessage) error {
+			received = msg
+
+			return nil
+		})
+
+		_, err := broker.Subscribe(ctx, "test", h1)
+		require.NoError(t, err)
+
+		t.Run("WHEN publishing a golang message THEN subscriptions receives the message AND codec is invoked for encoding/decoding", func(t *testing.T) {
+			sent := testMessage{
+				Value: "testing",
+				Slice: []int{1, 2, 3},
+				Metadata: map[string]string{
+					"test": "testing",
+				},
+			}
+
+			require.NoError(t, broker.Publish(ctx, "test", sent))
+
+			require.Eventually(t, func() bool {
+				return sent.Equals(received) && spy.decoderCalls == 1 && spy.encoderCalls == 1
+			}, 5*time.Second, 100*time.Millisecond)
+		})
+	})
+}
+
 type testMessage struct {
-	Value string
+	Value    string
+	Slice    []int
+	Metadata map[string]string
+}
+
+func (t testMessage) Equals(other testMessage) bool {
+	if t.Value != other.Value {
+		return false
+	}
+
+	if len(t.Metadata) != len(other.Metadata) {
+		return false
+	}
+
+	for k, v := range t.Metadata {
+		if other.Metadata[k] != v {
+			return false
+		}
+	}
+
+	if len(t.Slice) != len(other.Slice) {
+		return false
+	}
+
+	for i, v := range t.Slice {
+		if other.Slice[i] != v {
+			return false
+		}
+	}
+
+	return true
 }
 
 type jsonCodecSpy struct {
@@ -259,4 +328,21 @@ func (g *gobCodecSpy) Decode(bytes []byte, i interface{}) error {
 	g.decoderCalls++
 
 	return codec.Gob.Decode(bytes, i)
+}
+
+type msgpackCodecSky struct {
+	encoderCalls int
+	decoderCalls int
+}
+
+func (g *msgpackCodecSky) Encode(i interface{}) ([]byte, error) {
+	g.encoderCalls++
+
+	return codec.Msgpack.Encode(i)
+}
+
+func (g *msgpackCodecSky) Decode(bytes []byte, i interface{}) error {
+	g.decoderCalls++
+
+	return codec.Msgpack.Decode(bytes, i)
 }
