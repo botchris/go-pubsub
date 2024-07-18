@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/botchris/go-pubsub"
+	"github.com/hashicorp/go-multierror"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
 
@@ -39,7 +40,7 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	t := b.openTopic(topic)
 	b.Unlock()
 
-	multiErrs := mewMultiErrs()
+	errors := &multierror.Error{}
 
 	for _, result := range t.publish(ctx, m) {
 		if result.err != nil && !b.withPublishErrors {
@@ -47,15 +48,11 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 		}
 
 		if result.err != nil && b.withPublishErrors {
-			multiErrs.add(result.err)
+			errors = multierror.Append(errors, result.err)
 		}
 	}
 
-	if !multiErrs.isEmpty() {
-		return multiErrs
-	}
-
-	return nil
+	return errors.ErrorOrNil()
 }
 
 func (b *broker) Subscribe(_ context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
