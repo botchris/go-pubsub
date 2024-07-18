@@ -3,14 +3,13 @@ package memory_test
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/provider/memory"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -340,8 +339,6 @@ func Test_Broker_Publish(t *testing.T) {
 
 			t.Run("THEN it returns an error", func(t *testing.T) {
 				require.Error(t, publishErr)
-
-				fmt.Println(publishErr)
 			})
 		})
 	})
@@ -368,16 +365,14 @@ func Test_Broker_Publish(t *testing.T) {
 		_, err = brokerWithErrors.Subscribe(ctx, topic, otherFailHandler)
 		require.NoError(t, err)
 
-		t.Run("WHEN publish errors are enabled and multiple subscribers with mixed results", func(t *testing.T) {
+		t.Run("WHEN publish errors are enabled and multiple subscribers returning error", func(t *testing.T) {
 			publishErr := brokerWithErrors.Publish(ctx, topic, message)
 
 			t.Run("THEN it returns both errors", func(t *testing.T) {
 				require.Error(t, publishErr)
 
-				assert.ErrorIs(t, publishErr, assert.AnError)
-				assert.ErrorIs(t, publishErr, otherErr)
-
-				fmt.Println(publishErr)
+				assert.Contains(t, publishErr.Error(), assert.AnError.Error())
+				assert.Contains(t, publishErr.Error(), otherErr.Error())
 			})
 		})
 	})

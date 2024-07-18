@@ -30,11 +30,11 @@ func (e *multiErrs) Error() string {
 
 	for i, err := range e.errors {
 		if customErr == nil {
-			customErr = fmt.Errorf("#%d %w", len(e.errors), err)
+			customErr = fmt.Errorf("#%d %s", len(e.errors), err)
 			continue
 		}
 
-		customErr = fmt.Errorf("#%d %w: %w", len(e.errors)-i, err, customErr)
+		customErr = fmt.Errorf("#%d %s: %s", len(e.errors)-i, err, customErr)
 	}
-	return fmt.Errorf("%w: memory broker: %d errors occurred", customErr, len(e.errors)).Error()
+	return fmt.Errorf("%s: memory broker: %d errors occurred", customErr, len(e.errors)).Error()
 }
