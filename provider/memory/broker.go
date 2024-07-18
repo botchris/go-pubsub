@@ -16,15 +16,22 @@ import (
 )
 
 type broker struct {
-	topics map[pubsub.Topic]*topic
+	topics            map[pubsub.Topic]*topic
+	withPublishErrors bool
 	sync.RWMutex
 }
 
 // NewBroker returns a new in-memory broker instance.
-func NewBroker() pubsub.Broker {
-	return &broker{
+func NewBroker(ops ...Option) pubsub.Broker {
+	b := &broker{
 		topics: make(map[pubsub.Topic]*topic),
 	}
+
+	for _, op := range ops {
+		op(b)
+	}
+
+	return b
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
@@ -32,10 +39,20 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 	t := b.openTopic(topic)
 	b.Unlock()
 
+	multiErrs := mewMultiErrs()
+
 	for _, result := range t.publish(ctx, m) {
-		if result.err != nil {
+		if result.err != nil && !b.withPublishErrors {
 			continue
 		}
+
+		if result.err != nil && b.withPublishErrors {
+			multiErrs.add(result.err)
+		}
+	}
+
+	if !multiErrs.isEmpty() {
+		return multiErrs
 	}
 
 	return nil
