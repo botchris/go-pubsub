@@ -3,6 +3,7 @@ package memory_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -371,8 +372,10 @@ func Test_Broker_Publish(t *testing.T) {
 			t.Run("THEN it returns both errors", func(t *testing.T) {
 				require.Error(t, publishErr)
 
-				assert.Contains(t, publishErr.Error(), assert.AnError.Error())
-				assert.Contains(t, publishErr.Error(), otherErr.Error())
+				assert.ErrorIs(t, publishErr, assert.AnError)
+				assert.ErrorIs(t, publishErr, otherErr)
+
+				fmt.Println(publishErr)
 			})
 		})
 	})
