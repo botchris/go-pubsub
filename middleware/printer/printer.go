@@ -15,7 +15,7 @@ type middleware struct {
 }
 
 // NewPrinterMiddleware returns a new middleware that prints messages
-// to the writer the given write when publishing or delivering messages
+// to the writer the given write when publishing or delivering messages.
 func NewPrinterMiddleware(broker pubsub.Broker, writer io.Writer) pubsub.Broker {
 	return &middleware{
 		Broker: broker,

@@ -12,7 +12,7 @@ var Protobuf = protobuf{}
 type protobuf struct{}
 
 // Encode assumes that the given message is a proto message and encodes it using
-// `proto.Marshal`
+// `proto.Marshal`.
 func (p protobuf) Encode(msg interface{}) ([]byte, error) {
 	pb, ok := msg.(proto.Message)
 	if !ok {
@@ -23,7 +23,7 @@ func (p protobuf) Encode(msg interface{}) ([]byte, error) {
 }
 
 // Decode assumes that the given target is a pointer to a `proto.Message`
-// implementation and decodes it using `proto.Unmarshal`
+// implementation and decodes it using `proto.Unmarshal`.
 func (p protobuf) Decode(raw []byte, target interface{}) error {
 	t, ok := target.(proto.Message)
 	if !ok {

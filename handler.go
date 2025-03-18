@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-// List of known errors for handler signature validation process
+// List of known errors for handler signature validation process.
 var (
 	ErrNilHandler                   = errors.New("handler function can not be nil")
 	ErrHandlerNotAFunction          = errors.New("provided handler is not a function")
@@ -18,7 +18,7 @@ var (
 	ErrHandlerOutputNoError         = errors.New("handler output must implements `error` interface")
 )
 
-// predefined values used internally when validation handler signatures
+// predefined values used internally when validation handler signatures.
 var (
 	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 	errorType   = reflect.TypeOf((*error)(nil)).Elem()
@@ -61,7 +61,7 @@ func (r MessageReflection) String() string {
 	return fmt.Sprintf("%s (%s)", r.MessageType, r.MessageKind)
 }
 
-// handler represents a handling function capable of receiving messages
+// handler represents a handling function capable of receiving messages.
 type handler struct {
 	reflection  MessageReflection
 	messageKind reflect.Kind
@@ -121,7 +121,7 @@ func (h *handler) Reflect() MessageReflection {
 	return h.reflection
 }
 
-// validateHandlerFn ensures that the given handling function has the form: `func (ctx context.Context, m <Type>) error`
+// validateHandlerFn ensures that the given handling function has the form: `func (ctx context.Context, m <Type>) error`.
 func validateHandlerFn(fn interface{}) error {
 	if fn == nil {
 		return ErrNilHandler

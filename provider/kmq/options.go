@@ -28,7 +28,7 @@ func (f fnOption) apply(o *options) {
 	f.f(o)
 }
 
-// WithServerHost sets KubeMQ server host. e.g. `localhost`
+// WithServerHost sets KubeMQ server host. e.g. `localhost`.
 func WithServerHost(host string) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -37,7 +37,7 @@ func WithServerHost(host string) Option {
 	}
 }
 
-// WithServerPort sets KubeMQ server grpc port. Default: 50000
+// WithServerPort sets KubeMQ server grpc port. Default: 50000.
 func WithServerPort(serverPort int) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -86,7 +86,7 @@ func WithSubscribeErrorHandler(f func(error)) Option {
 }
 
 // WithDeliveryTimeout sets the max execution time a handler has to process a
-// message. Default: 5s
+// message. Default: 5s.
 func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{
 		f: func(o *options) {
@@ -95,7 +95,7 @@ func WithDeliveryTimeout(t time.Duration) Option {
 	}
 }
 
-// WithAutoReconnect sets the auto reconnect flag. Default: true
+// WithAutoReconnect sets the auto reconnect flag. Default: true.
 func WithAutoReconnect(b bool) Option {
 	return fnOption{
 		f: func(o *options) {

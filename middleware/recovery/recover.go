@@ -7,7 +7,7 @@ import (
 )
 
 // HandlerFunc is a function that recovers from the panic `p` by returning
-// an `error` message
+// an `error` message.
 type HandlerFunc func(ctx context.Context, p interface{}) error
 
 type middleware struct {
