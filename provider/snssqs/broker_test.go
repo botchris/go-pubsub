@@ -365,17 +365,8 @@ func flushTopics(ctx context.Context, cli *awssns.Client) error {
 }
 
 func awsConfig(t *testing.T) aws.Config {
-	customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			PartitionID:   "aws",
-			URL:           "http://localhost:4566",
-			SigningRegion: "us-east-1",
-		}, nil
-	})
-
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion("us-east-1"),
-		config.WithEndpointResolver(customResolver),
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
 				AccessKeyID:     "test",
@@ -384,6 +375,8 @@ func awsConfig(t *testing.T) aws.Config {
 			},
 		}),
 	)
+
+	awsCfg.BaseEndpoint = aws.String("http://localhost:4566")
 
 	require.NoError(t, err)
 
