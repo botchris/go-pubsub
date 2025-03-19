@@ -7,7 +7,6 @@ services:
       - "4566:4566"
     environment:
       - SERVICES=sns,sqs
-      - HOSTNAME=localhost
       - IMAGE_NAME=localstack/localstack:4.2.0
       - USE_LIGHT_IMAGE=1
       - START_WEB=0
@@ -16,6 +15,8 @@ services:
       - LS_LOG=error
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - go-pubsub_net
   kubemq:
     image: kubemq/kubemq-community:latest
     container_name: kubemq
@@ -25,3 +26,9 @@ services:
       - "50000:50000"
     environment:
       - KUBEMQ_HOST=kubemq
+    networks:
+        - go-pubsub_net
+
+networks:
+  go-pubsub_net:
+      driver: bridge
