@@ -2,13 +2,13 @@ version: "3.3"
 
 services:
   localstack:
-    image: "localstack/localstack:0.12.6"
+    image: "localstack/localstack:4.2.0"
     ports:
       - "4566:4566"
     environment:
       - SERVICES=sns,sqs
       - HOSTNAME=localhost
-      - IMAGE_NAME=localstack/localstack:0.12.6
+      - IMAGE_NAME=localstack/localstack:4.2.0
       - USE_LIGHT_IMAGE=1
       - START_WEB=0
       - DEFAULT_REGION=us-east-1

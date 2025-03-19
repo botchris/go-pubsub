@@ -13,6 +13,7 @@ type options struct {
 	snsClient            AWSSNSAPI
 	sqsClient            AWSSQSAPI
 	sqsQueueURL          string
+	sqsQueueARN          string
 	deliverTimeout       time.Duration
 	topicsReloadInterval time.Duration
 	maxMessages          int32
@@ -51,6 +52,15 @@ func WithSQSQueueURL(sqsQueueURL string) Option {
 	return fnOption{
 		f: func(o *options) {
 			o.sqsQueueURL = sqsQueueURL
+		},
+	}
+}
+
+// WithSQSQueueARN sets the SQS queue ARN to be used by broker.
+func WithSQSQueueARN(sqsQueueARN string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.sqsQueueARN = sqsQueueARN
 		},
 	}
 }
