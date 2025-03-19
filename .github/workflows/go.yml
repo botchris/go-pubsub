@@ -25,9 +25,6 @@ jobs:
     - name: Test & Lint
       run: |
         docker compose up -d
-        sleep 10 && curl http://localhost:4566/_localstack/health
-        nc -zv localhost 4566
-        docker-compose exec localstack curl http://localhost:4566/_localstack/health
         scripts/wait-sns.sh
         scripts/wait-sqs.sh
         scripts/wait-kubemq.sh
