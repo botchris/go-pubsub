@@ -15,8 +15,6 @@ services:
       - LS_LOG=error
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
-    networks:
-      - go-pubsub_net
   kubemq:
     image: kubemq/kubemq-community:latest
     container_name: kubemq
@@ -26,9 +24,3 @@ services:
       - "50000:50000"
     environment:
       - KUBEMQ_HOST=kubemq
-    networks:
-        - go-pubsub_net
-
-networks:
-  go-pubsub_net:
-      driver: bridge
