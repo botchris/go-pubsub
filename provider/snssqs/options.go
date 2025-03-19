@@ -13,6 +13,7 @@ type options struct {
 	snsClient            AWSSNSAPI
 	sqsClient            AWSSQSAPI
 	sqsQueueURL          string
+	sqsQueueARN          string
 	deliverTimeout       time.Duration
 	topicsReloadInterval time.Duration
 	maxMessages          int32
@@ -55,8 +56,17 @@ func WithSQSQueueURL(sqsQueueURL string) Option {
 	}
 }
 
+// WithSQSQueueARN sets the SQS queue ARN to be used by broker.
+func WithSQSQueueARN(sqsQueueARN string) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.sqsQueueARN = sqsQueueARN
+		},
+	}
+}
+
 // WithDeliveryTimeout sets the max execution time a handler has to handle a
-// message. Default: 5s
+// message. Default: 5s.
 func WithDeliveryTimeout(t time.Duration) Option {
 	return fnOption{
 		f: func(o *options) {

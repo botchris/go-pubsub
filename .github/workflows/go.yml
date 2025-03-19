@@ -13,21 +13,22 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
     - uses: actions/checkout@v3
 
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.17
+        go-version: 1.23
 
     - name: Test & Lint
       run: |
-        docker-compose up -d
+        docker compose up -d
         scripts/wait-sns.sh
         scripts/wait-sqs.sh
         scripts/wait-kubemq.sh
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.51.0
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.8
         go mod download
         golangci-lint run -v ./...
         go test -count=1 -race ./...

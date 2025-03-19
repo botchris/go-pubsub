@@ -10,8 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awssns "github.com/aws/aws-sdk-go-v2/service/sns"
-	"github.com/aws/aws-sdk-go-v2/service/sns/types"
+	snstypes "github.com/aws/aws-sdk-go-v2/service/sns/types"
 	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/botchris/go-pubsub/provider/snssqs"
@@ -286,11 +287,21 @@ func prepareBroker(
 		return nil, err
 	}
 
-	queueURL := *qRes.QueueUrl
+	attr, err := sqsClient.GetQueueAttributes(ctx, &awssqs.GetQueueAttributesInput{
+		QueueUrl: qRes.QueueUrl,
+		AttributeNames: []sqstypes.QueueAttributeName{
+			sqstypes.QueueAttributeNameQueueArn,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	broker, err := snssqs.NewBroker(ctx,
 		snssqs.WithSNSClient(snsClient),
 		snssqs.WithSQSClient(sqsClient),
-		snssqs.WithSQSQueueURL(queueURL),
+		snssqs.WithSQSQueueARN(attr.Attributes[string(sqstypes.QueueAttributeNameQueueArn)]),
+		snssqs.WithSQSQueueURL(aws.ToString(qRes.QueueUrl)),
 		snssqs.WithWaitTimeSeconds(1),
 	)
 
@@ -308,7 +319,7 @@ func prepareTopic(ctx context.Context, cli *awssns.Client, topic pubsub.Topic) (
 
 	tRes, err := cli.CreateTopic(ctx, &awssns.CreateTopicInput{
 		Name: aws.String(topic.String()),
-		Tags: []types.Tag{
+		Tags: []snstypes.Tag{
 			{
 				Key:   aws.String("topic-name"),
 				Value: aws.String(topic.String()),
@@ -365,17 +376,9 @@ func flushTopics(ctx context.Context, cli *awssns.Client) error {
 }
 
 func awsConfig(t *testing.T) aws.Config {
-	customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			PartitionID:   "aws",
-			URL:           "http://localhost:4566",
-			SigningRegion: "us-east-1",
-		}, nil
-	})
-
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion("us-east-1"),
-		config.WithEndpointResolver(customResolver),
+		config.WithBaseEndpoint("http://localhost:4566"),
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
 				AccessKeyID:     "test",
@@ -384,7 +387,6 @@ func awsConfig(t *testing.T) aws.Config {
 			},
 		}),
 	)
-
 	require.NoError(t, err)
 
 	return awsCfg

@@ -7,7 +7,7 @@ import (
 	"github.com/botchris/go-pubsub"
 )
 
-// topic defines an in-memory topic to which handlers may subscribe to
+// topic defines an in-memory topic to which handlers may subscribe to.
 type topic struct {
 	id            pubsub.Topic
 	subscriptions map[string]pubsub.Subscription
@@ -19,7 +19,7 @@ type publishResult struct {
 	err          error
 }
 
-// newTopic creates a new topic
+// newTopic creates a new topic.
 func newTopic(id pubsub.Topic) *topic {
 	return &topic{
 		id:            id,
@@ -27,7 +27,7 @@ func newTopic(id pubsub.Topic) *topic {
 	}
 }
 
-// publish sends the given message to each handler of this topic
+// publish sends the given message to each handler of this topic.
 func (t *topic) publish(ctx context.Context, m interface{}) []*publishResult {
 	t.RLock()
 	defer t.RUnlock()
@@ -75,7 +75,7 @@ func (t *topic) unsubscribe(id string) {
 	delete(t.subscriptions, id)
 }
 
-// size how many subscriptions are currently attached to this topic
+// size how many subscriptions are currently attached to this topic.
 func (t *topic) size() int {
 	t.RLock()
 	defer t.RUnlock()

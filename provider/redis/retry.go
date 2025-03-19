@@ -8,7 +8,7 @@ import (
 
 const errMsgPoolTimeout = "redis: connection pool timeout"
 
-// callWithRetry tries the call and reattempts uf we see a connection pool timeout error
+// callWithRetry tries the call and reattempts uf we see a connection pool timeout error.
 func callWithRetry(f func() error, retries int) error {
 	var err error
 

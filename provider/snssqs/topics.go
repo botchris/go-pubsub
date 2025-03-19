@@ -11,7 +11,7 @@ import (
 
 // topicsCache is used to hold an in-memory map of code-level topics names and their corresponding AWS identity (ARN).
 // Topics are expected to be tagged with the key "topic-name" when defined on AWS platform. This key is used to store
-// the name of the topic as seen by broker implementation, that is, as reflected in the code by using type `pubsub.Type`
+// the name of the topic as seen by broker implementation, that is, as reflected in the code by using type `pubsub.Type`.
 type topicsCache struct {
 	client AWSSNSAPI
 	cache  map[pubsub.Topic]string
@@ -54,7 +54,7 @@ func (t *topicsCache) arnOf(topic pubsub.Topic) (string, error) {
 	return "", errors.New("topic not found")
 }
 
-// nameOf returns the name of the topic for the specified ARN, or empty if not found
+// nameOf returns the name of the topic for the specified ARN, or empty if not found.
 func (t *topicsCache) nameOf(arn string) pubsub.Topic {
 	t.mu.RLock()
 	defer t.mu.RUnlock()

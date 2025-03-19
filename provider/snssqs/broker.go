@@ -117,7 +117,7 @@ func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, handler pubs
 	}
 
 	subSNS, err := b.options.snsClient.Subscribe(ctx, &sns.SubscribeInput{
-		Endpoint: aws.String(b.options.sqsQueueURL),
+		Endpoint: aws.String(b.options.sqsQueueARN),
 		Protocol: aws.String("sqs"),
 		TopicArn: aws.String(topicARN),
 	})

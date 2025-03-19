@@ -31,14 +31,14 @@ func WithLogger(logger Logger) Option {
 }
 
 // WithDeliverTimeout how long to wait trying to send a message to a handler
-// until we consider it has timed out. Default: 10s
+// until we consider it has timed out. Default: 10s.
 func WithDeliverTimeout(to time.Duration) Option {
 	return func(opts *options) {
 		opts.deliverTimeout = to
 	}
 }
 
-// WithReadGroupTimeout how long to block on call to redis. Default: 10s
+// WithReadGroupTimeout how long to block on call to redis. Default: 10s.
 func WithReadGroupTimeout(readGroupTimeout time.Duration) Option {
 	return func(opts *options) {
 		opts.readGroupTimeout = readGroupTimeout
@@ -46,28 +46,28 @@ func WithReadGroupTimeout(readGroupTimeout time.Duration) Option {
 }
 
 // WithPendingIdleTime how long in pending before we claim a message from a
-// different consumer. Default: 1 minute
+// different consumer. Default: 1 minute.
 func WithPendingIdleTime(pendingIdleTime time.Duration) Option {
 	return func(opts *options) {
 		opts.pendingIdleTime = pendingIdleTime
 	}
 }
 
-// WithJanitorConsumerTimeout threshold for an "old" consumer. Default: 1 day
+// WithJanitorConsumerTimeout threshold for an "old" consumer. Default: 1 day.
 func WithJanitorConsumerTimeout(janitorConsumerTimeout time.Duration) Option {
 	return func(opts *options) {
 		opts.janitorConsumerTimeout = janitorConsumerTimeout
 	}
 }
 
-// WithJanitorFrequency how often do we run the janitor. Default: 4 hour
+// WithJanitorFrequency how often do we run the janitor. Default: 4 hour.
 func WithJanitorFrequency(janitorFrequency time.Duration) Option {
 	return func(opts *options) {
 		opts.janitorFrequency = janitorFrequency
 	}
 }
 
-// WithTrimDuration oldest event in stream. Default: 5 days
+// WithTrimDuration oldest event in stream. Default: 5 days.
 func WithTrimDuration(trimDuration time.Duration) Option {
 	return func(opts *options) {
 		opts.trimDuration = trimDuration
