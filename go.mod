@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.34.0
+	github.com/alitto/pond/v2 v2.3.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.9
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.62
