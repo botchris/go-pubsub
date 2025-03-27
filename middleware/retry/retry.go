@@ -23,7 +23,9 @@ func NewRetryMiddleware(broker pubsub.Broker, o ...Option) pubsub.Broker {
 	opts := &options{
 		publishStrategy: NewExponentialBackoff(DefaultExponentialBackoffConfig),
 		deliverStrategy: NewExponentialBackoff(DefaultExponentialBackoffConfig),
-		publishError:    func(t pubsub.Topic, m interface{}, err error) {},
+		publishError: func(t pubsub.Topic, m interface{}, err error) {
+			fmt.Printf("retrying publish error, cause: message was dropped, retries exhausted {topic=%s, error=%s}\n", t, err)
+		},
 	}
 
 	for _, opt := range o {
@@ -61,7 +63,7 @@ retry:
 
 	if nErr := mw.Broker.Publish(ctx, topic, m); nErr != nil {
 		if mw.options.publishStrategy.Failure(topic, m, nErr) {
-			fmt.Printf("retrying publish error, cause: message was dropped, retries exhausted {topic=%s, error=%s}\n", topic, nErr)
+			mw.options.publishError(topic, m, nErr)
 
 			return nil
 		}
