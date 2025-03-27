@@ -27,7 +27,7 @@ func TestPublishInterceptor(t *testing.T) {
 			Factor: 100 * time.Millisecond,
 			Max:    5 * time.Second,
 		})
-		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
+		broker = retry.NewRetryMiddleware(broker, retry.WithPublishStrategy(strategy), retry.WithDeliverStrategy(strategy))
 
 		t.Run("WHEN underlying publishing fails", func(t *testing.T) {
 			err := broker.Publish(ctx, "topic", "message")
@@ -49,7 +49,7 @@ func TestPublishInterceptor(t *testing.T) {
 		broker := pubsub.Broker(mock)
 
 		strategy := retry.NewBreakerStrategy(5, time.Second)
-		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
+		broker = retry.NewRetryMiddleware(broker, retry.WithPublishStrategy(strategy), retry.WithDeliverStrategy(strategy))
 
 		t.Run("WHEN underlying publishing fails 5 times in a row", func(t *testing.T) {
 			err := broker.Publish(ctx, "topic", "message")
@@ -91,7 +91,7 @@ func TestDeliveryInterception(t *testing.T) {
 		})
 
 		broker := memory.NewBroker()
-		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
+		broker = retry.NewRetryMiddleware(broker, retry.WithPublishStrategy(strategy), retry.WithDeliverStrategy(strategy))
 		topic := pubsub.Topic("test")
 
 		h1 := pubsub.NewHandler(handler)
@@ -124,7 +124,7 @@ func TestDeliveryInterception(t *testing.T) {
 
 		strategy := retry.NewBreakerStrategy(4, time.Second)
 		broker := memory.NewBroker()
-		broker = retry.NewRetryMiddleware(broker, strategy, strategy)
+		broker = retry.NewRetryMiddleware(broker, retry.WithPublishStrategy(strategy), retry.WithDeliverStrategy(strategy))
 		topic := pubsub.Topic("test")
 
 		h1 := pubsub.NewHandler(handler)

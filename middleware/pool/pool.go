@@ -2,9 +2,10 @@ package pool
 
 import (
 	"context"
+	"time"
+
 	"github.com/alitto/pond/v2"
 	"github.com/botchris/go-pubsub"
-	"time"
 )
 
 type middleware struct {
@@ -20,7 +21,11 @@ func NewPoolMiddleware(broker pubsub.Broker, maxConcurrency int, o ...Option) pu
 		timeout:     5 * time.Second,
 		queueSize:   0,
 		nonBlocking: false,
-		onError:     func(m interface{}, err error) {},
+		onError:     func(t pubsub.Topic, m interface{}, err error) {},
+	}
+
+	for _, opt := range o {
+		opt(opts)
 	}
 
 	return &middleware{
@@ -40,7 +45,7 @@ func (mw middleware) Publish(_ context.Context, topic pubsub.Topic, m interface{
 		defer cancel()
 
 		if pErr := mw.Broker.Publish(ctx, topic, m); pErr != nil {
-			mw.options.onError(m, pErr)
+			mw.options.onError(topic, m, pErr)
 		}
 	})
 
