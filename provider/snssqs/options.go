@@ -1,7 +1,10 @@
 package snssqs
 
 import (
+	"errors"
 	"time"
+
+	"github.com/botchris/go-pubsub/middleware/codec"
 )
 
 // Option defines a function signature for configuration options.
@@ -19,6 +22,7 @@ type options struct {
 	maxMessages          int32
 	visibilityTimeout    int32
 	waitTimeSeconds      int32
+	codec                codec.Codec
 }
 
 type fnOption struct {
@@ -119,4 +123,39 @@ func WithWaitTimeSeconds(t int32) Option {
 			o.waitTimeSeconds = t
 		},
 	}
+}
+
+// WithCodec sets the codec to be used by the broker.
+func WithCodec(codec codec.Codec) Option {
+	return fnOption{
+		f: func(o *options) {
+			o.codec = codec
+		},
+	}
+}
+
+func (o options) validateSQSSettings() error {
+	if o.isWriteOnly() {
+		return nil
+	}
+
+	if o.sqsQueueURL == "" {
+		return errors.New("no SQS queue URL was provided")
+	}
+
+	if o.sqsQueueARN == "" {
+		return errors.New("no SQS queue ARN was provided")
+	}
+
+	if o.sqsClient == nil {
+		return errors.New("no SQS client was provided")
+	}
+
+	return nil
+}
+
+func (o options) isWriteOnly() bool {
+	return o.sqsQueueURL == "" &&
+		o.sqsQueueARN == "" &&
+		o.sqsClient == nil
 }

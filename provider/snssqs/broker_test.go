@@ -226,6 +226,41 @@ func TestMultiHostBroker(t *testing.T) {
 	})
 }
 
+func TestWriteOnlyBroker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a sns topic AND no sqs configurations", func(t *testing.T) {
+		cfg := awsConfig(t)
+		snsCli := awssns.NewFromConfig(cfg)
+
+		topic := pubsub.Topic("test-topic")
+		topicARN, err := prepareTopic(ctx, snsCli, "test-topic")
+		require.NoError(t, err)
+		require.NotEmpty(t, topicARN)
+
+		broker, err := snssqs.NewBroker(ctx,
+			snssqs.WithSNSClient(snsCli),
+			snssqs.WithCodec(codec.JSON),
+		)
+
+		t.Run("WHEN we instance the broker with just sns configuration", func(t *testing.T) {
+			t.Run("THEN there is no error", func(t *testing.T) {
+				require.NoError(t, err)
+			})
+
+			t.Run("AND we can publish messages to the topic", func(t *testing.T) {
+				require.NoError(t, broker.Publish(ctx, topic, "hello world"))
+			})
+
+			t.Run("BUT we cannot subscribe to the topic", func(t *testing.T) {
+				_, err := broker.Subscribe(ctx, topic, pubsub.NewHandler((&consumer{}).handle))
+				require.Error(t, err)
+			})
+		})
+	})
+}
+
 type consumer struct {
 	rcv queue
 	mu  sync.RWMutex
@@ -303,13 +338,14 @@ func prepareBroker(
 		snssqs.WithSQSQueueARN(attr.Attributes[string(sqstypes.QueueAttributeNameQueueArn)]),
 		snssqs.WithSQSQueueURL(aws.ToString(qRes.QueueUrl)),
 		snssqs.WithWaitTimeSeconds(1),
+		snssqs.WithCodec(codec.JSON),
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return codec.NewCodecMiddleware(broker, codec.JSON), nil
+	return broker, nil
 }
 
 func prepareTopic(ctx context.Context, cli *awssns.Client, topic pubsub.Topic) (string, error) {

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/botchris/go-pubsub"
+	"github.com/botchris/go-pubsub/middleware/codec"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kubemq-io/kubemq-go/pkg/uuid"
 )
@@ -38,10 +39,15 @@ type broker struct {
 // implementation (`pubsub.topic`). This allows to keep the topic name
 // agnostic to their underlying implementation.
 //
+// You can instance a write-only broker by passing no SQS related configuration options.
+// This broker will only be able to publish messages to SNS topics, but will not be able to
+// subscribe handlers to topics nor receive messages from SQS queues. Of course, no goroutine
+// to poll the SQS queue will be started in this case.
+//
 // IMPORTANT: this broker must be used in conjunction with a Codec middleware in
 // order to ensure that the messages are properly encoded and decoded.
 // Otherwise, only binary messages will be accepted when publishing or
-// delivering messages.
+// delivering messages. Hence, `WithCodec` option is mandatory.
 func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 	opts := &options{
 		deliverTimeout:       5 * time.Second,
@@ -59,12 +65,12 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		return nil, errors.New("no SNS client was provided")
 	}
 
-	if opts.sqsClient == nil {
-		return nil, errors.New("no SQS client was provided")
+	if err := opts.validateSQSSettings(); err != nil {
+		return nil, err
 	}
 
-	if opts.sqsQueueURL == "" {
-		return nil, errors.New("no SQS queue URL was provided")
+	if opts.codec == nil {
+		return nil, errors.New("no codec was provided")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -84,7 +90,7 @@ func NewBroker(ctx context.Context, option ...Option) (pubsub.Broker, error) {
 		go b.run()
 	}()
 
-	return b, nil
+	return codec.NewCodecMiddleware(b, opts.codec), nil
 }
 
 func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{}) error {
@@ -111,6 +117,10 @@ func (b *broker) Publish(ctx context.Context, topic pubsub.Topic, m interface{})
 }
 
 func (b *broker) Subscribe(ctx context.Context, topic pubsub.Topic, handler pubsub.Handler, option ...pubsub.SubscribeOption) (pubsub.Subscription, error) {
+	if b.options.isWriteOnly() {
+		return nil, errors.New("no SQS queue ARN provided, broker is configured as write-only")
+	}
+
 	topicARN, err := b.topics.arnOf(topic)
 	if err != nil {
 		return nil, err
@@ -196,6 +206,10 @@ func (b *broker) Shutdown(ctx context.Context) error {
 }
 
 func (b *broker) run() {
+	if b.options.isWriteOnly() {
+		return
+	}
+
 	done := b.runnerCtx.Done()
 	topicTicker := time.NewTicker(b.options.topicsReloadInterval)
 	defer topicTicker.Stop()
