@@ -1,15 +1,19 @@
 package pool
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Option is a configuration function that can be passed to NewPoolMiddleware.
 type Option func(*options)
 
 type options struct {
-	timeout     time.Duration
-	queueSize   int
-	nonBlocking bool
-	onError     func(m interface{}, err error)
+	timeout         time.Duration
+	queueSize       int
+	nonBlocking     bool
+	onError         func(m interface{}, err error)
+	ctxMetadataFunc func(pubCtx context.Context) map[string]any
 }
 
 // WithOnError sets Publish error handler function.
@@ -39,5 +43,13 @@ func WithQueueSize(size int) Option {
 func WithNonBlocking(nonBlocking bool) Option {
 	return func(p *options) {
 		p.nonBlocking = nonBlocking
+	}
+}
+
+// WithCtxMetadataFunc sets the function to pipe metadata from the Publish context to the pool goroutine context.
+// Metadata can be recovered by the subscribers with pool.MetadataFromContext function.
+func WithCtxMetadataFunc(fn func(pubCtx context.Context) map[string]any) Option {
+	return func(p *options) {
+		p.ctxMetadataFunc = fn
 	}
 }

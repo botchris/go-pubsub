@@ -2,10 +2,13 @@ package pool
 
 import (
 	"context"
+	"time"
+
 	"github.com/alitto/pond/v2"
 	"github.com/botchris/go-pubsub"
-	"time"
 )
+
+const metadataCtxKey = iota
 
 type middleware struct {
 	pubsub.Broker
@@ -23,6 +26,10 @@ func NewPoolMiddleware(broker pubsub.Broker, maxConcurrency int, o ...Option) pu
 		onError:     func(m interface{}, err error) {},
 	}
 
+	for i := range o {
+		o[i](opts)
+	}
+
 	return &middleware{
 		Broker:  broker,
 		options: opts,
@@ -34,12 +41,21 @@ func NewPoolMiddleware(broker pubsub.Broker, maxConcurrency int, o ...Option) pu
 	}
 }
 
-func (mw middleware) Publish(_ context.Context, topic pubsub.Topic, m interface{}) error {
+func (mw middleware) Publish(pubCtx context.Context, topic pubsub.Topic, m interface{}) error {
+	var ctxMD map[string]any
+	if mw.options.ctxMetadataFunc != nil {
+		ctxMD = mw.options.ctxMetadataFunc(pubCtx)
+	}
+
 	mw.pool.Submit(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), mw.options.timeout)
+		poolCtx, cancel := context.WithTimeout(context.Background(), mw.options.timeout)
 		defer cancel()
 
-		if pErr := mw.Broker.Publish(ctx, topic, m); pErr != nil {
+		if ctxMD != nil {
+			poolCtx = context.WithValue(poolCtx, metadataCtxKey, ctxMD)
+		}
+
+		if pErr := mw.Broker.Publish(poolCtx, topic, m); pErr != nil {
 			mw.options.onError(m, pErr)
 		}
 	})
@@ -51,4 +67,14 @@ func (mw middleware) Shutdown(ctx context.Context) error {
 	mw.pool.StopAndWait()
 
 	return mw.Broker.Shutdown(ctx)
+}
+
+// MetadataFromContext retrieves the metadata piped from the Publish context in the pool goroutine context.
+func MetadataFromContext(ctx context.Context) map[string]any {
+	md, exists := ctx.Value(metadataCtxKey).(map[string]any)
+	if !exists {
+		return make(map[string]any)
+	}
+
+	return md
 }

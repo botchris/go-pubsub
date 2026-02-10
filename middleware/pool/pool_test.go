@@ -45,6 +45,59 @@ func TestNewPoolMiddleware(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GIVEN a memory broker with a context pipe functions option AND a context with a value", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		ctx = context.WithValue(ctx, "foo", "bar")
+
+		broker := pool.NewPoolMiddleware(
+			memory.NewBroker(),
+			100,
+			pool.WithCtxMetadataFunc(func(pubCtx context.Context) map[string]any {
+				return map[string]any{
+					"foo": pubCtx.Value("foo"),
+				}
+			}),
+		)
+		topic := pubsub.Topic("topic-1")
+		rx := &stack{}
+
+		mux := &sync.Mutex{}
+		poolCtxMDExists := false
+
+		handler := pubsub.NewHandler(func(ctx context.Context, topic pubsub.Topic, message interface{}) error {
+			rx.append(message)
+
+			mux.Lock()
+			defer mux.Unlock()
+
+			md := pool.MetadataFromContext(ctx)
+			if val, exists := md["foo"]; exists && val == "bar" {
+				poolCtxMDExists = true
+			}
+
+			return nil
+		})
+
+		_, err := broker.Subscribe(ctx, topic, handler)
+		require.NoError(t, err)
+
+		t.Run("WHEN publishing a messages", func(t *testing.T) {
+			pErr := broker.Publish(ctx, topic, "test message")
+			require.NoError(t, pErr)
+
+			t.Run("THEN pool metadata key and value exist in the subscribe ctx", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					mux.Lock()
+					defer mux.Unlock()
+
+					return rx.size() == 1 && poolCtxMDExists
+				}, 5*time.Second, 100*time.Millisecond)
+			})
+		})
+	})
 }
 
 type stack struct {
