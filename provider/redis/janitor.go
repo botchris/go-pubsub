@@ -1,7 +1,6 @@
 package redis
 
 import (
-	"strconv"
 	"time"
 )
 
@@ -18,7 +17,7 @@ func (r *broker) runJanitor() {
 				return
 			case <-time.After(r.options.janitorFrequency):
 				if err := r.cleanupConsumers(); err != nil {
-					r.options.logger.Errorf("Error cleaning up consumers")
+					r.options.logger.Errorf("Error cleaning up consumers: %s", err)
 				}
 			}
 		}
@@ -26,40 +25,43 @@ func (r *broker) runJanitor() {
 
 }
 
+// cleanupConsumers reads groups and consumers with XINFO GROUPS and XINFO
+// CONSUMERS, not XINFO STREAM FULL: go-redis rejects any field it does not
+// know, and STREAM FULL is the reply Redis keeps extending (8.12 added the
+// idmp-* and iids-* fields).
 func (r *broker) cleanupConsumers() error {
-	now := time.Now()
-	keys, err := r.redisClient.Keys(r.ctx, "stream-*").Result()
+	keys, err := r.redisClient.Keys(r.ctx, streamName("*")).Result()
 	if err != nil {
 		return err
 	}
 
-	for _, streamName := range keys {
-		s, err := r.redisClient.XInfoStreamFull(r.ctx, streamName, 1).Result()
+	for _, stream := range keys {
+		groups, err := r.redisClient.XInfoGroups(r.ctx, stream).Result()
 		if err != nil {
+			r.options.logger.Errorf("Error listing groups of %s: %s", stream, err)
 			continue
 		}
 
-		for _, g := range s.Groups {
-			for _, c := range g.Consumers {
-				// Seen time is the last time this consumer read a message successfully.
+		for _, g := range groups {
+			consumers, err := r.redisClient.XInfoConsumers(r.ctx, stream, g.Name).Result()
+			if err != nil {
+				r.options.logger.Errorf("Error listing consumers of %s %s: %s", stream, g.Name, err)
+				continue
+			}
+
+			for _, c := range consumers {
+				// Idle is the time since this consumer last read from the stream.
 				// This means if the stream is low volume you could delete currently connected consumers
 				// This isn't a massive problem because the clients should reconnect with a new consumer
-				if c.SeenTime.Add(r.options.janitorConsumerTimeout).After(now) {
+				if c.Idle < r.options.janitorConsumerTimeout {
 					continue
 				}
 
-				//logger.Infof("Cleaning up consumer %s, it is %s old", c.Name, time.Since(c.SeenTime))
-				if err := r.redisClient.XGroupDelConsumer(r.ctx, streamName, g.Name, c.Name).Err(); err != nil {
-					r.options.logger.Errorf("Error deleting consumer %s %s %s: %s", streamName, g.Name, c.Name, err)
+				if err := r.redisClient.XGroupDelConsumer(r.ctx, stream, g.Name, c.Name).Err(); err != nil {
+					r.options.logger.Errorf("Error deleting consumer %s %s %s: %s", stream, g.Name, c.Name, err)
 					continue
 				}
 			}
-
-		}
-
-		d := r.options.trimDuration
-		if err := r.redisClient.XTrimMinID(r.ctx, streamName, strconv.FormatInt(time.Now().Add(-d).Unix()*1000, 10)); err != nil {
-			r.options.logger.Errorf("Error trimming %s", err)
 		}
 	}
 

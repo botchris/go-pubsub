@@ -2,6 +2,7 @@ package redis_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/botchris/go-pubsub"
 	"github.com/botchris/go-pubsub/middleware/codec"
 	redisb "github.com/botchris/go-pubsub/provider/redis"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,6 +65,38 @@ func TestNewBroker(t *testing.T) {
 		})
 	})
 
+}
+
+func TestPublishTrimsStream(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stream holding entries older than the trim duration", func(t *testing.T) {
+		s, err := miniredis.Run()
+		require.NoError(t, err)
+
+		client := redis.NewClient(&redis.Options{Addr: s.Addr()})
+		old := time.Now().Add(-2 * time.Hour).UnixMilli()
+
+		for i := 0; i < 10; i++ {
+			require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{
+				Stream: "stream-test",
+				ID:     fmt.Sprintf("%d-%d", old, i),
+				Values: map[string]interface{}{"event": "old", "attempt": 1},
+			}).Err())
+		}
+
+		broker, err := redisb.NewBroker(ctx, redisb.WithAddress(s.Addr()), redisb.WithTrimDuration(time.Hour))
+		require.NoError(t, err)
+
+		t.Run("WHEN publishing a message", func(t *testing.T) {
+			require.NoError(t, broker.Publish(ctx, "test", []byte("new")))
+
+			t.Run("THEN only the new message remains in the stream", func(t *testing.T) {
+				require.EqualValues(t, 1, client.XLen(ctx, "stream-test").Val())
+			})
+		})
+	})
 }
 
 func prepareBroker(ctx context.Context, t *testing.T) pubsub.Broker {

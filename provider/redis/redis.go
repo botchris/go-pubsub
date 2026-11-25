@@ -71,7 +71,9 @@ func (r *broker) Publish(ctx context.Context, topic pubsub.Topic, msg interface{
 	}
 
 	return r.redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: fmt.Sprintf("stream-%s", topic),
+		Stream: streamName(topic),
+		MinID:  r.trimMinID(),
+		Approx: true,
 		Values: map[string]interface{}{"event": string(body), "attempt": 1},
 	}).Err()
 }
@@ -131,7 +133,7 @@ func (r *broker) Shutdown(_ context.Context) error {
 }
 
 func (r *broker) consume(t pubsub.Topic, sub pubsub.StoppableSubscription) error {
-	topic := fmt.Sprintf("stream-%s", t)
+	topic := streamName(t)
 	lastRead := "$"
 	groupID := sub.Options().Group
 
@@ -334,6 +336,8 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub pubsub.StoppableSubs
 			return r.redisClient.XAdd(sub.Context(),
 				&redis.XAddArgs{
 					Stream: topic,
+					MinID:  r.trimMinID(),
+					Approx: true,
 					Values: map[string]interface{}{
 						"event":   string(ev),
 						"attempt": attempt + 1,
@@ -358,4 +362,11 @@ func (r *broker) processMessages(msgs []redis.XMessage, sub pubsub.StoppableSubs
 	}
 
 	return nil
+}
+
+// trimMinID is the oldest entry ID a stream keeps: every XADD carries it as
+// MINID, so Redis enforces the retention on each write and no stream grows
+// past it, whatever the janitor manages to do.
+func (r *broker) trimMinID() string {
+	return strconv.FormatInt(time.Now().Add(-r.options.trimDuration).UnixMilli(), 10)
 }
