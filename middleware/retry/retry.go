@@ -12,6 +12,7 @@ type middleware struct {
 	pubsub.Broker
 	publishStrategy Strategy
 	deliverStrategy Strategy
+	options         *options
 }
 
 // NewRetryMiddleware returns a middleware that retries messages that fail to
@@ -19,12 +20,32 @@ type middleware struct {
 //
 // Strategies must be configured accordingly, so they can retry as long as
 // operation contexts keeps alive. For instance, when publishing a message, the
-// maximum execution time is determined by the provided context.
-func NewRetryMiddleware(broker pubsub.Broker, publish Strategy, deliver Strategy) pubsub.Broker {
+// maximum execution time is determined by the provided context. A nil strategy
+// defaults to an exponential backoff with DefaultExponentialBackoffConfig.
+func NewRetryMiddleware(broker pubsub.Broker, publish Strategy, deliver Strategy, o ...Option) pubsub.Broker {
+	if publish == nil {
+		publish = NewExponentialBackoff(DefaultExponentialBackoffConfig)
+	}
+
+	if deliver == nil {
+		deliver = NewExponentialBackoff(DefaultExponentialBackoffConfig)
+	}
+
+	opts := &options{
+		publishError: func(t pubsub.Topic, m interface{}, err error) {
+			fmt.Printf("retrying publish error, cause: message was dropped, retries exhausted {topic=%s, error=%s}\n", t, err)
+		},
+	}
+
+	for _, opt := range o {
+		opt(opts)
+	}
+
 	return &middleware{
 		Broker:          broker,
 		publishStrategy: publish,
 		deliverStrategy: deliver,
+		options:         opts,
 	}
 }
 
@@ -53,7 +74,7 @@ retry:
 
 	if nErr := mw.Broker.Publish(ctx, topic, m); nErr != nil {
 		if mw.publishStrategy.Failure(topic, m, nErr) {
-			fmt.Printf("retrying publish error, cause: message was dropped, retries exhausted {topic=%s, error=%s}\n", topic, nErr)
+			mw.options.publishError(topic, m, nErr)
 
 			return nil
 		}
