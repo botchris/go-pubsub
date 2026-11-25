@@ -21,7 +21,17 @@ type options struct {
 }
 
 // WithOnError sets Publish error handler function.
-func WithOnError(fn PublishErrorHandler) Option {
+//
+// Deprecated: use WithPublishError, which also receives the topic.
+func WithOnError(onError func(m interface{}, err error)) Option {
+	return WithPublishError(func(_ pubsub.Topic, m interface{}, err error) {
+		onError(m, err)
+	})
+}
+
+// WithPublishError sets the function called when publishing a message
+// fails.
+func WithPublishError(fn PublishErrorHandler) Option {
 	return func(p *options) {
 		p.onError = fn
 	}
