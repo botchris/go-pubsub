@@ -67,7 +67,9 @@ func WithJanitorFrequency(janitorFrequency time.Duration) Option {
 	}
 }
 
-// WithTrimDuration oldest event in stream. Default: 5 days.
+// WithTrimDuration oldest event in stream, enforced on every publish with an
+// approximate XADD MINID, so a stream may briefly hold slightly older entries.
+// Default: 5 days.
 func WithTrimDuration(trimDuration time.Duration) Option {
 	return func(opts *options) {
 		opts.trimDuration = trimDuration
